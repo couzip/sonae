@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 20% 4%;
+    --foreground: 240 5% 96%;
+    --muted: 240 4% 64%;
+    --border: 240 4% 16%;
+    --accent: 173 80% 40%;
+    --radius: 2px;
+  }
+
+  html {
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-bg text-ink font-sans antialiased;
+    font-feature-settings: 'tnum';
+    background-image:
+      radial-gradient(ellipse at top, rgba(20, 184, 166, 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom, rgba(20, 184, 166, 0.02) 0%, transparent 50%);
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background-color: rgba(20, 184, 166, 0.3);
+    color: #f4f4f5;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #27272a;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .leader-dots {
+    flex: 1;
+    border-bottom: 0.5px dashed #3f3f46;
+    margin: 0 8px 4px 8px;
+    min-width: 16px;
+  }
+
+  .hairline-border {
+    border-width: 0.5px;
+  }
+
+  .scanline {
+    position: relative;
+  }
+  .scanline::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(244, 244, 245, 0.015) 2px,
+      rgba(244, 244, 245, 0.015) 3px
+    );
+    mix-blend-mode: overlay;
+  }
+
+  .corner-tick {
+    position: relative;
+  }
+  .corner-tick::before,
+  .corner-tick::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-color: #3f3f46;
+    border-style: solid;
+    pointer-events: none;
+  }
+  .corner-tick::before {
+    top: 0;
+    left: 0;
+    border-width: 0.5px 0 0 0.5px;
+  }
+  .corner-tick::after {
+    bottom: 0;
+    right: 0;
+    border-width: 0 0.5px 0.5px 0;
+  }
+}

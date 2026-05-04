@@ -1,0 +1,120 @@
+# 自治体レジストリ (シード)
+# code: 全国地方公共団体コード(5桁市区町村コード、最初の2桁が都道府県)
+# name_aliases に正式名/別表記を入れて、住所/逆ジオコーディング結果から検索できるようにする
+
+# 神奈川県 — デモターゲット (disaster_plan_url 指定で browser-use を skip)
+- code: '14100'
+  name: 横浜市
+  prefecture: 神奈川県
+  prefecture_code: '14'
+  lat: 35.4437
+  lng: 139.6380
+  name_aliases: [横浜市, よこはま市, ヨコハマ市, Yokohama]
+  disaster_plan_url: https://www.city.yokohama.lg.jp/bousai-kyukyu-bohan/bousai-saigai/data/bosaikeikaku/keikaku/keikakutou/keikaku.files/0044_20240327.pdf
+  disaster_plan_label: 横浜市防災計画 一括ダウンロード版 (令和6年3月27日修正)
+  disaster_plan_page_url: https://www.city.yokohama.lg.jp/bousai-kyukyu-bohan/bousai-saigai/data/bosaikeikaku/keikaku/keikakutou/keikaku.html
+
+- code: '14130'
+  name: 川崎市
+  prefecture: 神奈川県
+  prefecture_code: '14'
+  lat: 35.5308
+  lng: 139.7029
+  name_aliases: [川崎市, かわさき市, カワサキ市, Kawasaki]
+  disaster_plan_url: https://www.city.kawasaki.jp/cmsfiles/contents/0000034/34665/shinsai.pdf
+  disaster_plan_label: 川崎市地域防災計画 震災対策編 (令和7年度修正版)
+  disaster_plan_page_url: https://www.city.kawasaki.jp/601/page/0000034665.html
+
+- code: '14150'
+  name: 相模原市
+  prefecture: 神奈川県
+  prefecture_code: '14'
+  lat: 35.5713
+  lng: 139.3733
+  name_aliases: [相模原市, さがみはら市]
+
+# 東京都 23区
+- code: '13101'
+  name: 千代田区
+  prefecture: 東京都
+  prefecture_code: '13'
+  lat: 35.6940
+  lng: 139.7536
+  name_aliases: [千代田区]
+
+- code: '13102'
+  name: 中央区
+  prefecture: 東京都
+  prefecture_code: '13'
+  lat: 35.6706
+  lng: 139.7720
+  name_aliases: [中央区(東京)]
+
+- code: '13103'
+  name: 港区
+  prefecture: 東京都
+  prefecture_code: '13'
+  lat: 35.6581
+  lng: 139.7414
+  name_aliases: [港区(東京)]
+
+- code: '13104'
+  name: 新宿区
+  prefecture: 東京都
+  prefecture_code: '13'
+  lat: 35.6938
+  lng: 139.7036
+  name_aliases: [新宿区, しんじゅく区]
+
+- code: '13113'
+  name: 渋谷区
+  prefecture: 東京都
+  prefecture_code: '13'
+  lat: 35.6640
+  lng: 139.6982
+  name_aliases: [渋谷区, しぶや区]
+
+# 千葉県
+- code: '12100'
+  name: 千葉市
+  prefecture: 千葉県
+  prefecture_code: '12'
+  lat: 35.6072
+  lng: 140.1063
+  name_aliases: [千葉市, ちば市]
+
+# 埼玉県
+- code: '11100'
+  name: さいたま市
+  prefecture: 埼玉県
+  prefecture_code: '11'
+  lat: 35.8617
+  lng: 139.6455
+  name_aliases: [さいたま市, サイタマ市]
+
+# 大阪府
+- code: '27100'
+  name: 大阪市
+  prefecture: 大阪府
+  prefecture_code: '27'
+  lat: 34.6937
+  lng: 135.5023
+  name_aliases: [大阪市, おおさか市]
+
+# 静岡県 — 巨大地震想定エリア
+- code: '22100'
+  name: 静岡市
+  prefecture: 静岡県
+  prefecture_code: '22'
+  lat: 34.9756
+  lng: 138.3829
+  name_aliases: [静岡市, しずおか市]
+
+# 熊本県 — 熊本地震実績あり
+- code: '43100'
+  name: 熊本市
+  prefecture: 熊本県
+  prefecture_code: '43'
+  lat: 32.7898
+  lng: 130.7417
+  name_aliases: [熊本市, くまもと市]

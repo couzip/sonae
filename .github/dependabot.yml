@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 5
+    groups:
+      next-stack:
+        patterns: ['next', 'react', 'react-dom', 'eslint-config-next']
+      pdf-stack:
+        patterns: ['pdfjs-dist', '@napi-rs/canvas']
+      browser-stack:
+        patterns: ['browser-use', 'playwright', 'maplibre-gl', 'react-map-gl']
+      radix:
+        patterns: ['@radix-ui/*']
+      types:
+        patterns: ['@types/*']
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'

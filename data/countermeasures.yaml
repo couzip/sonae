@@ -1,0 +1,1014 @@
+# 防災対策マスター(74項目)
+# 出典: schema_and_countermeasures_draft.md §2 をフラット化
+# 各項目はクライアント側でユーザーのプロファイルでフィルタされる
+
+# ================== 地震 (15項目) ==================
+- id: eq_furniture_securing
+  category: 物理対策
+  disaster_group: earthquake
+  label: 家具を固定する
+  short_description: 転倒防止器具で家具を壁・床に固定
+  applicable_disasters: [earthquake]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: very_high
+  detail:
+    why: 室内負傷の30〜50%が家具転倒由来
+    how: L字金具/突っ張り棒/粘着マット等
+    references:
+      - { title: 消防庁「住宅防火対策」, url: null }
+    related_actions: [eq_bedroom_safety]
+
+- id: eq_bedroom_safety
+  category: 物理対策
+  disaster_group: earthquake
+  label: 寝室の安全を確保する
+  short_description: 寝ている時に倒れる物がないようレイアウト
+  applicable_disasters: [earthquake]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: eq_glass_film
+  category: 物理対策
+  disaster_group: earthquake
+  label: 窓ガラスに飛散防止フィルム
+  applicable_disasters: [earthquake, storm, tornado]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: medium, cost: low, skill: low }
+  impact: medium
+
+- id: eq_seismic_diagnosis
+  category: 建物対策
+  disaster_group: earthquake
+  label: 耐震診断を受ける
+  short_description: 自治体補助で受けられる場合が多い
+  applicable_disasters: [earthquake]
+  applicability:
+    ownership: [owned]
+    building_type: [any]
+    max_year_built: 2000
+    has_member: [any]
+    location_type: [any]
+  effort: { time: medium, cost: medium, skill: low }
+  impact: very_high
+
+- id: eq_seismic_retrofit
+  category: 建物対策
+  disaster_group: earthquake
+  label: 耐震補強工事
+  short_description: 旧耐震基準の建物は補強で倒壊リスクが大幅減
+  applicable_disasters: [earthquake]
+  applicability:
+    ownership: [owned]
+    building_type: [any]
+    max_year_built: 1981
+    has_member: [any]
+    location_type: [any]
+  effort: { time: high, cost: high, skill: high }
+  impact: very_high
+
+- id: eq_partial_retrofit
+  category: 建物対策
+  disaster_group: earthquake
+  label: 部分耐震補強(寝室・1階)
+  short_description: 全体補強が難しい場合の現実的選択
+  applicable_disasters: [earthquake]
+  applicability:
+    ownership: [owned]
+    building_type: [any]
+    max_year_built: 2000
+    has_member: [any]
+    location_type: [any]
+  effort: { time: medium, cost: medium, skill: medium }
+  impact: high
+
+- id: eq_roof_lightening
+  category: 建物対策
+  disaster_group: earthquake
+  label: 屋根の軽量化
+  applicable_disasters: [earthquake]
+  applicability:
+    ownership: [owned]
+    building_type: [wood]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: high, cost: high, skill: high }
+  impact: medium
+
+- id: eq_emergency_kit
+  category: 備蓄
+  disaster_group: earthquake
+  label: 非常持出袋を準備する
+  applicable_disasters: [earthquake, tsunami, flood, volcanic]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: medium, skill: low }
+  impact: high
+
+- id: eq_water_storage
+  category: 備蓄
+  disaster_group: earthquake
+  label: 水を備蓄する(3日分以上)
+  short_description: 1人1日3L × 家族人数 × 3日
+  applicable_disasters: [earthquake, tsunami, flood, volcanic, storm]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: eq_food_storage
+  category: 備蓄
+  disaster_group: earthquake
+  label: 食料を備蓄する(3日分以上)
+  applicable_disasters: [earthquake, tsunami, flood, volcanic, storm]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: medium, skill: low }
+  impact: high
+
+- id: eq_toilet_kit
+  category: 備蓄
+  disaster_group: earthquake
+  label: 簡易トイレを備蓄する
+  short_description: 断水時に最も困るのがトイレ
+  applicable_disasters: [earthquake, tsunami, flood]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: eq_family_communication
+  category: 計画
+  disaster_group: earthquake
+  label: 家族との連絡方法を決める
+  short_description: 災害用伝言ダイヤル171、集合場所など
+  applicable_disasters: [earthquake, tsunami, flood, volcanic, storm, urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: eq_evacuation_route
+  category: 計画
+  disaster_group: earthquake
+  label: 避難所までの道を実際に歩く
+  short_description: 昼夜両方、危険箇所を確認
+  applicable_disasters: [earthquake, tsunami, flood, landslide, urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: eq_safe_zone_check
+  category: 計画
+  disaster_group: earthquake
+  label: 自宅内の安全ゾーンを決める
+  short_description: 揺れた瞬間に身を守る場所
+  applicable_disasters: [earthquake]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: eq_drill_participation
+  category: 計画
+  disaster_group: earthquake
+  label: 防災訓練に参加する
+  applicable_disasters: [earthquake, tsunami, flood, urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: medium, cost: low, skill: low }
+  impact: medium
+
+# ================== 水害 (12項目) ==================
+- id: fl_hazard_map_check
+  category: 認知
+  disaster_group: flood
+  label: ハザードマップで自宅の浸水想定を確認
+  applicable_disasters: [flood, inland_flood, storm_surge]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: fl_warning_setup
+  category: 計画
+  disaster_group: flood
+  label: 気象警報の受信を設定する
+  short_description: スマホアプリやLアラート
+  applicable_disasters: [flood, inland_flood, storm, storm_surge, landslide]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: very_high
+
+- id: fl_evacuation_decision
+  category: 計画
+  disaster_group: flood
+  label: 避難開始の判断基準を決める
+  short_description: 警戒レベル3で高齢者避難、レベル4で全員避難
+  applicable_disasters: [flood, inland_flood, storm, landslide]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: very_high
+
+- id: fl_vertical_evacuation_plan
+  category: 計画
+  disaster_group: flood
+  label: 垂直避難の計画
+  short_description: 浸水深以上の階に避難する判断
+  applicable_disasters: [flood, inland_flood, tsunami]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: fl_sandbag
+  category: 物理対策
+  disaster_group: flood
+  label: 土のう袋を備える
+  applicable_disasters: [flood, inland_flood]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [urban, inland]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: fl_water_stop_board
+  category: 物理対策
+  disaster_group: flood
+  label: 止水板を設置する
+  applicable_disasters: [flood, inland_flood]
+  applicability:
+    ownership: [owned]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: medium, cost: medium, skill: medium }
+  impact: high
+
+- id: fl_drain_cleaning
+  category: 物理対策
+  disaster_group: flood
+  label: 雨水ますの清掃
+  short_description: 周辺の側溝や雨水ますを定期清掃
+  applicable_disasters: [inland_flood]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: fl_basement_check
+  category: 物理対策
+  disaster_group: flood
+  label: 半地下・地下室の浸水対策
+  applicable_disasters: [flood, inland_flood]
+  applicability:
+    ownership: [owned]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: medium, cost: medium, skill: medium }
+  impact: high
+
+- id: fl_car_evacuation
+  category: 計画
+  disaster_group: flood
+  label: 車両避難の判断
+  short_description: 浸水時の車両水没を避ける移動計画
+  applicable_disasters: [flood, inland_flood, storm_surge]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: fl_river_distance_check
+  category: 認知
+  disaster_group: flood
+  label: 自宅と河川の距離・標高を確認
+  applicable_disasters: [flood]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: fl_evacuation_shelter_check
+  category: 計画
+  disaster_group: flood
+  label: 浸水しない避難所を確認
+  short_description: 水害時に避難可能な高所の施設
+  applicable_disasters: [flood, inland_flood, tsunami]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: fl_neighbor_help_plan
+  category: 計画
+  disaster_group: flood
+  label: 高齢の親族・隣人の避難支援を計画
+  applicable_disasters: [flood, inland_flood, storm]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [elderly, care_needed]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+# ================== 土砂災害 (8項目) ==================
+- id: ls_zone_check
+  category: 認知
+  disaster_group: landslide
+  label: 警戒区域内に居住しているか確認
+  applicable_disasters: [landslide]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: very_high
+
+- id: ls_warning_signs
+  category: 認知
+  disaster_group: landslide
+  label: 土砂災害の前兆を学ぶ
+  short_description: 山鳴り、地下水の濁り、亀裂等
+  applicable_disasters: [landslide]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [mountainous]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: ls_early_evacuation
+  category: 計画
+  disaster_group: landslide
+  label: 早期避難の方針を家族で共有
+  short_description: 警報レベル3で高齢者避難、4で全員避難
+  applicable_disasters: [landslide]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: very_high
+
+- id: ls_safe_room
+  category: 計画
+  disaster_group: landslide
+  label: 山と反対側の部屋に避難する判断
+  short_description: 屋外避難が困難な時の屋内安全確保
+  applicable_disasters: [landslide]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [mountainous]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: ls_slope_check
+  category: 認知
+  disaster_group: landslide
+  label: 自宅周辺の崖・斜面を点検
+  applicable_disasters: [landslide]
+  applicability:
+    ownership: [owned]
+    building_type: [any]
+    has_member: [any]
+    location_type: [mountainous]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: ls_retaining_wall
+  category: 物理対策
+  disaster_group: landslide
+  label: 擁壁・排水設備の点検
+  applicable_disasters: [landslide]
+  applicability:
+    ownership: [owned]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: medium, cost: medium, skill: medium }
+  impact: medium
+
+- id: ls_relocation_consideration
+  category: 計画
+  disaster_group: landslide
+  label: 特別警戒区域なら移転を検討
+  short_description: 自治体の移転促進制度の確認
+  applicable_disasters: [landslide]
+  applicability:
+    ownership: [owned]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: high, cost: high, skill: medium }
+  impact: very_high
+
+- id: ls_rainfall_threshold
+  category: 計画
+  disaster_group: landslide
+  label: 降雨の警戒基準を知る
+  short_description: 連続雨量100mm超え等の判断材料
+  applicable_disasters: [landslide]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [mountainous]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+# ================== 津波 (8項目) ==================
+- id: ts_arrival_time_check
+  category: 認知
+  disaster_group: tsunami
+  label: 津波到達予想時間を確認
+  applicable_disasters: [tsunami]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [coastal]
+  effort: { time: low, cost: low, skill: low }
+  impact: very_high
+
+- id: ts_evacuation_route
+  category: 計画
+  disaster_group: tsunami
+  label: 高台への避難ルートを実踏
+  short_description: 津波避難ビル・高台までの最短経路
+  applicable_disasters: [tsunami]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [coastal]
+  effort: { time: low, cost: low, skill: low }
+  impact: very_high
+
+- id: ts_immediate_action
+  category: 計画
+  disaster_group: tsunami
+  label: 揺れたらすぐ避難の原則
+  short_description: 警報を待たず自主判断で動く
+  applicable_disasters: [tsunami]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [coastal]
+  effort: { time: low, cost: low, skill: low }
+  impact: very_high
+
+- id: ts_vertical_building
+  category: 計画
+  disaster_group: tsunami
+  label: 周辺の津波避難ビルを把握
+  applicable_disasters: [tsunami]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [coastal]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: ts_no_return
+  category: 計画
+  disaster_group: tsunami
+  label: 一度避難したら戻らない原則
+  short_description: 第2波・第3波が大きい場合あり
+  applicable_disasters: [tsunami]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [coastal]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: ts_drill_participation
+  category: 計画
+  disaster_group: tsunami
+  label: 津波避難訓練に参加
+  applicable_disasters: [tsunami]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [coastal]
+  effort: { time: medium, cost: low, skill: low }
+  impact: medium
+
+- id: ts_workplace_school_plan
+  category: 計画
+  disaster_group: tsunami
+  label: 職場・学校での避難方針を確認
+  applicable_disasters: [tsunami]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [coastal]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: ts_inundation_zone_check
+  category: 認知
+  disaster_group: tsunami
+  label: 浸水想定区域に居住・勤務しているか確認
+  applicable_disasters: [tsunami]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [coastal]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+# ================== 火山 (7項目) ==================
+- id: vc_warning_level_check
+  category: 認知
+  disaster_group: volcanic
+  label: 噴火警戒レベルの意味を理解
+  applicable_disasters: [volcanic]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: vc_evacuation_zone_check
+  category: 認知
+  disaster_group: volcanic
+  label: 避難対象エリアに居住しているか確認
+  applicable_disasters: [volcanic]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: very_high
+
+- id: vc_ash_supplies
+  category: 備蓄
+  disaster_group: volcanic
+  label: 降灰対策用品を備える
+  short_description: ゴーグル、防塵マスク、帽子
+  applicable_disasters: [volcanic]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: vc_ash_house_protection
+  category: 物理対策
+  disaster_group: volcanic
+  label: 降灰時の換気・空調対策
+  applicable_disasters: [volcanic]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: vc_evacuation_destination
+  category: 計画
+  disaster_group: volcanic
+  label: 噴火時の広域避難先を決める
+  short_description: 第1次〜第6次エリアごとの避難計画
+  applicable_disasters: [volcanic]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: very_high
+
+- id: vc_lahar_route
+  category: 認知
+  disaster_group: volcanic
+  label: 火山泥流の想定ルートを確認
+  applicable_disasters: [volcanic]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: vc_long_term_preparation
+  category: 備蓄
+  disaster_group: volcanic
+  label: 長期化に備える(数週間単位)
+  short_description: 噴火は数日〜数週間継続することも
+  applicable_disasters: [volcanic]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: medium, cost: medium, skill: low }
+  impact: medium
+
+# ================== 暴風・台風 (8項目) ==================
+- id: st_window_protection
+  category: 物理対策
+  disaster_group: storm
+  label: 窓の補強(雨戸・シャッター・養生テープ)
+  applicable_disasters: [storm, tornado]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: st_outdoor_securing
+  category: 物理対策
+  disaster_group: storm
+  label: 屋外の飛散物を片付ける
+  short_description: 植木鉢、自転車、物干し竿等
+  applicable_disasters: [storm, tornado]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: st_typhoon_path_check
+  category: 計画
+  disaster_group: storm
+  label: 台風進路の確認習慣
+  applicable_disasters: [storm, storm_surge]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: st_blackout_preparation
+  category: 備蓄
+  disaster_group: storm
+  label: 停電時の備え(モバイルバッテリー、ランタン)
+  applicable_disasters: [storm, earthquake, flood]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: st_roof_inspection
+  category: 物理対策
+  disaster_group: storm
+  label: 屋根・雨樋の点検
+  applicable_disasters: [storm]
+  applicability:
+    ownership: [owned]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: medium, cost: medium, skill: medium }
+  impact: medium
+
+- id: st_no_outing
+  category: 計画
+  disaster_group: storm
+  label: 暴風時の不要不急の外出を控える方針
+  applicable_disasters: [storm]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: st_safe_room_choice
+  category: 計画
+  disaster_group: storm
+  label: 暴風時の屋内安全な部屋を決める
+  short_description: 窓のない部屋、家の中央寄り
+  applicable_disasters: [storm, tornado]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: st_business_continuity
+  category: 計画
+  disaster_group: storm
+  label: 仕事・学校の休止判断基準を共有
+  applicable_disasters: [storm]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: low
+
+# ================== 火災延焼 (6項目) ==================
+- id: fr_seismic_breaker
+  category: 物理対策
+  disaster_group: urban_fire
+  label: 感震ブレーカーを設置
+  short_description: 地震時の通電火災を防ぐ
+  applicable_disasters: [urban_fire, earthquake]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: very_high
+
+- id: fr_extinguisher
+  category: 物理対策
+  disaster_group: urban_fire
+  label: 消火器を備える
+  applicable_disasters: [urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: fr_smoke_alarm
+  category: 物理対策
+  disaster_group: urban_fire
+  label: 住宅用火災警報器の点検
+  applicable_disasters: [urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: fr_dense_area_check
+  category: 認知
+  disaster_group: urban_fire
+  label: 木造密集地域に居住しているか確認
+  applicable_disasters: [urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: fr_fireproof_curtain
+  category: 物理対策
+  disaster_group: urban_fire
+  label: 防炎カーテン・寝具
+  applicable_disasters: [urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: medium, skill: low }
+  impact: medium
+
+- id: fr_evacuation_route_fire
+  category: 計画
+  disaster_group: urban_fire
+  label: 火災時の避難経路(複数)を確保
+  applicable_disasters: [urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+# ================== 共通 (10項目) ==================
+- id: cm_first_aid_kit
+  category: 備蓄
+  disaster_group: common
+  label: 救急セットを備える
+  applicable_disasters: [earthquake, tsunami, flood, landslide, volcanic, storm, urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: cm_medication_storage
+  category: 備蓄
+  disaster_group: common
+  label: 常用薬を1週間分備える
+  applicable_disasters: [earthquake, tsunami, flood, landslide, volcanic, storm]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [elderly, care_needed]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: cm_pet_preparation
+  category: 計画
+  disaster_group: common
+  label: ペット同伴避難の準備
+  applicable_disasters: [earthquake, tsunami, flood, landslide, volcanic, storm]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [pets]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: cm_infant_supplies
+  category: 備蓄
+  disaster_group: common
+  label: 乳幼児用品の備蓄(ミルク、おむつ等)
+  applicable_disasters: [earthquake, tsunami, flood, landslide, volcanic, storm]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [infant]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: cm_id_documents
+  category: 計画
+  disaster_group: common
+  label: 重要書類のコピー・データ化
+  short_description: 保険証、通帳、印鑑のコピーを非常持出袋に
+  applicable_disasters: [earthquake, tsunami, flood, urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: cm_insurance_check
+  category: 計画
+  disaster_group: common
+  label: 火災・地震保険の加入状況を確認
+  applicable_disasters: [earthquake, urban_fire, flood]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: cm_neighbor_relationship
+  category: 計画
+  disaster_group: common
+  label: 近隣との関係を作っておく
+  short_description: 共助は防災の重要要素
+  applicable_disasters: [earthquake, tsunami, flood, landslide, volcanic, storm, urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: cm_workplace_emergency
+  category: 計画
+  disaster_group: common
+  label: 職場の防災計画を確認
+  applicable_disasters: [earthquake, tsunami, flood, urban_fire]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: medium
+
+- id: cm_school_emergency
+  category: 計画
+  disaster_group: common
+  label: 学校の引き渡しルールを確認
+  applicable_disasters: [earthquake, tsunami, flood, landslide, volcanic, storm]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [children, infant]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: high
+
+- id: cm_supplies_review
+  category: 計画
+  disaster_group: common
+  label: 備蓄品の消費期限を定期チェック
+  applicable_disasters: [earthquake, tsunami, flood, storm]
+  applicability:
+    ownership: [owned, rented]
+    building_type: [any]
+    has_member: [any]
+    location_type: [any]
+  effort: { time: low, cost: low, skill: low }
+  impact: low
