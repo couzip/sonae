@@ -150,8 +150,14 @@ export const useResearchStore = create<ResearchState>()((set, get) => ({
           set({ status: 'error', error: payload.message });
           break;
         case 'cache_hit':
-          append({ ts: Date.now(), message: `[Cache] ヒット → 即返答`, tone: 'info' });
-          set({ status: 'cache_hit' });
+          // 中間 layer (source/blob/parsed) の cache_hit は完了扱いにしない。
+          // result layer のみが「最終結果がそのまま返る」=完了。
+          append({
+            ts: Date.now(),
+            message: `[Cache] ${payload.layer ?? ''} ヒット`,
+            tone: 'info',
+          });
+          if (payload.layer === 'result') set({ status: 'cache_hit' });
           break;
         case 'result':
           set({
