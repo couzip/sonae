@@ -223,9 +223,16 @@ function buildPipeline(mode: 'strict' | 'full_ocr_fallback'): SonaePipeline {
   });
 
   const discoverer = new SonaeDiscoverer({
-    llmBaseURL: process.env.LLM_BASE_URL ?? 'http://localhost:1234/v1',
-    llmApiKey: process.env.LLM_API_KEY ?? 'not-needed',
-    llmModel: process.env.LLM_MODEL ?? 'gemma-4-e4b-it@q4_k_s',
+    llmBaseURL:
+      process.env.DISCOVERY_LLM_BASE_URL ??
+      process.env.LLM_BASE_URL ??
+      'http://localhost:1234/v1',
+    llmApiKey:
+      process.env.DISCOVERY_LLM_API_KEY ?? process.env.LLM_API_KEY ?? 'not-needed',
+    llmModel:
+      process.env.DISCOVERY_LLM_MODEL ??
+      process.env.LLM_MODEL ??
+      'gemma-4-e4b-it@q4_k_s',
     headless: process.env.BROWSER_USE_HEADLESS === 'true',
   });
 
