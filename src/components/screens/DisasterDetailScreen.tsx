@@ -5,7 +5,7 @@ import { useFlowStore } from '@/stores/useFlowStore';
 import { useResearchStore } from '@/stores/useResearchStore';
 import { useLocationStore } from '@/stores/useLocationStore';
 import { useProfileStore } from '@/stores/useProfileStore';
-import { HUDFrame, MonoLabel, DataLine, HairlineDivider, SourceLink } from '@/components/cockpit';
+import { HUDFrame, HairlineDivider, SourceLink } from '@/components/cockpit';
 import { ChecklistGroup } from '@/components/checklist/ChecklistGroup';
 import {
   filterByDisaster,
@@ -13,6 +13,8 @@ import {
   type Countermeasure,
   type ProfileForFilter,
 } from '@/lib/sonae/client/countermeasures-filter';
+
+import { isMeaningful } from '@/lib/sonae/client/meaningful';
 
 interface ChecklistResponse {
   code: string;
@@ -25,11 +27,9 @@ export function DisasterDetailScreen() {
   const selected = useFlowStore((s) => s.selectedDisaster);
   const result = useResearchStore((s) => s.result);
   const municipality = useLocationStore((s) => s.municipality);
-  const profile = useProfileStore((s) => ({
-    building: s.building,
-    household: s.household,
-    lifestyle: s.lifestyle,
-  }));
+  const building = useProfileStore((s) => s.building);
+  const household = useProfileStore((s) => s.household);
+  const lifestyle = useProfileStore((s) => s.lifestyle);
 
   const [items, setItems] = useState<Countermeasure[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -57,116 +57,102 @@ export function DisasterDetailScreen() {
     };
   }, [code]);
 
-  // 選択された災害種別 + 共通対策のみ表示。プロファイルでさらにフィルタ。
-  // ロジックは lib/countermeasures-filter.ts に集約 (server / client 共通)。
   const filteredItems = useMemo(() => {
     if (!items) return null;
     const profileForFilter: ProfileForFilter = {
       building: {
-        year_built: profile.building.year_built,
-        construction: profile.building.construction,
-        ownership: profile.building.ownership,
+        year_built: building.year_built,
+        construction: building.construction,
+        ownership: building.ownership,
       },
-      household: { composition: profile.household.composition },
-      location_types: profile.lifestyle.location_types,
+      household: { composition: household.composition },
+      location_types: lifestyle.location_types,
     };
     const byDisaster = filterByDisaster(items, [], selected?.enumType ?? null);
     return filterByProfile(byDisaster, profileForFilter);
   }, [
     items,
     selected?.enumType,
-    profile.building.year_built,
-    profile.building.construction,
-    profile.building.ownership,
-    profile.household.composition,
-    profile.lifestyle.location_types,
+    building.year_built,
+    building.construction,
+    building.ownership,
+    household.composition,
+    lifestyle.location_types,
   ]);
 
   const detectedDisaster = result?.by_disaster_type.find(
     (d) => d.disaster_type === selected?.jpType,
   );
 
+  const scenarios = (detectedDisaster?.scenarios ?? []).filter(
+    (s) => isMeaningful(s.name) || isMeaningful(s.scale) || isMeaningful(s.expected_damage),
+  );
+
   return (
     <HUDFrame
-      serial="SONAE / SCN-04"
-      title={`災害詳細 — ${selected?.jpType ?? '未選択'}`}
-      rightSlot={
-        <MonoLabel size="2xs" tone="dim">
-          PHASE 4 / 5
-        </MonoLabel>
-      }
+      title={selected?.jpType ?? '災害詳細'}
       className="h-full"
       bodyClassName="p-4 overflow-auto"
     >
       <div className="flex flex-col gap-4 max-w-3xl mx-auto">
-        {/* 想定される事象 */}
         <section>
           <header className="flex items-baseline justify-between mb-2">
-            <h2 className="font-sans text-base text-ink">想定される事象</h2>
-            {detectedDisaster && (
-              <MonoLabel size="2xs" tone="mute">
-                {String(detectedDisaster.scenarios.length).padStart(2, '0')} SCENARIOS
-              </MonoLabel>
+            <h3 className="font-sans text-base text-ink">想定される事象</h3>
+            {scenarios.length > 0 && (
+              <span className="text-xs text-ink-mute tabular-nums">{scenarios.length}件</span>
             )}
           </header>
-          <div className="corner-tick border-hairline border-hairline rounded-cockpit bg-bg-raised/30 p-3">
-            {detectedDisaster && detectedDisaster.scenarios.length ? (
-              <ul className="flex flex-col gap-2">
-                {detectedDisaster.scenarios.map((s, i) => (
-                  <li key={i}>
-                    <DataLine
-                      label={s.name}
-                      value={s.scale || '—'}
-                      source={
-                        result?.source?.pdf_url ? (
-                          <SourceLink
-                            index={i + 1}
-                            title={result.source.pdf_label ?? '出典'}
-                            url={result.source.pdf_url}
-                          />
-                        ) : undefined
-                      }
-                    />
-                    {s.expected_damage &&
-                      s.expected_damage !== '記載なし' &&
-                      s.expected_damage !== '不明' && (
-                        <p className="font-sans text-xs text-ink-mute mt-0.5 leading-relaxed pl-2">
-                          {s.expected_damage}
-                        </p>
+          {scenarios.length > 0 ? (
+            <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {scenarios.map((s, i) => {
+                const name = isMeaningful(s.name) ? s.name : '想定シナリオ';
+                const scale = isMeaningful(s.scale) ? s.scale : null;
+                const damage = isMeaningful(s.expected_damage) ? s.expected_damage : null;
+                return (
+                  <li
+                    key={i}
+                    className="border-hairline border-hairline rounded-cockpit bg-bg-raised/40 p-3 flex flex-col gap-1.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-sans text-sm text-ink leading-snug min-w-0 break-words">
+                        {name}
+                      </h4>
+                      {result?.source?.pdf_url && (
+                        <SourceLink
+                          index={i + 1}
+                          title={result.source.pdf_label ?? '出典'}
+                          url={result.source.pdf_url}
+                        />
                       )}
+                    </div>
+                    {scale && (
+                      <div className="text-xs text-ink-mute tabular-nums leading-snug">{scale}</div>
+                    )}
+                    {damage && (
+                      <p className="text-xs text-ink-mute leading-relaxed mt-0.5">{damage}</p>
+                    )}
                   </li>
-                ))}
-              </ul>
-            ) : (
-              <MonoLabel size="xs" tone="dim">
-                想定の記載がありません
-              </MonoLabel>
-            )}
-          </div>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-sm text-ink-mute">想定の記載がありません</p>
+          )}
         </section>
 
         <HairlineDivider variant="dashed" />
 
-        {/* チェックリスト */}
         <section>
           <header className="flex items-baseline justify-between mb-2">
-            <h2 className="font-sans text-base text-ink">該当する対策</h2>
-            <MonoLabel size="2xs" tone="dim">
-              プロファイルで自動絞込み
-            </MonoLabel>
+            <h3 className="font-sans text-base text-ink">該当する対策</h3>
+            <span className="text-xs text-ink-mute">あなたの状況に合わせて表示しています</span>
           </header>
           {loadError && (
-            <div className="border-hairline border-scale-lg bg-bg-raised/50 p-3 rounded-cockpit">
-              <MonoLabel size="2xs" tone="default" className="text-scale-lg">
-                ⚠ {loadError}
-              </MonoLabel>
+            <div className="border-hairline border-scale-lg bg-bg-raised/50 p-3 rounded-cockpit text-sm text-scale-lg">
+              {loadError}
             </div>
           )}
-          {!items && !loadError && (
-            <MonoLabel size="xs" tone="dim">
-              対策を読み込み中...
-            </MonoLabel>
-          )}
+          {!items && !loadError && <p className="text-sm text-ink-mute">読み込み中</p>}
           {filteredItems && municipality && (
             <ChecklistGroup
               items={filteredItems}
@@ -181,19 +167,15 @@ export function DisasterDetailScreen() {
         <div className="flex justify-between sticky bottom-0 bg-bg/90 backdrop-blur py-2">
           <button
             onClick={() => setPhase('grid')}
-            className="border-hairline border-hairline px-4 py-2 rounded-cockpit hover:border-accent transition-colors"
+            className="border-hairline border-hairline px-4 py-2 rounded-cockpit hover:border-accent transition-colors text-sm text-ink-mute"
           >
-            <MonoLabel size="xs" tone="mute">
-              ◀ 災害グリッドへ
-            </MonoLabel>
+            災害一覧に戻る
           </button>
           <button
             onClick={() => setPhase('actions')}
-            className="border-hairline border-accent bg-accent-soft px-4 py-2 rounded-cockpit hover:bg-accent-dim transition-colors"
+            className="border-hairline border-accent bg-accent-soft px-4 py-2 rounded-cockpit hover:bg-accent-dim transition-colors text-sm text-accent"
           >
-            <MonoLabel size="xs" tone="accent">
-              完了 → 次の活動方針 ▶
-            </MonoLabel>
+            次の活動方針へ
           </button>
         </div>
       </div>

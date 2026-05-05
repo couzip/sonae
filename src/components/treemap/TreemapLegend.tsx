@@ -1,33 +1,29 @@
 'use client';
 
-import { MonoLabel } from '@/components/cockpit';
+import { disasterTone } from '@/lib/sonae/client/disaster-style';
 
-export function TreemapLegend() {
+interface TreemapLegendProps {
+  types: string[];
+}
+
+export function TreemapLegend({ types }: TreemapLegendProps) {
+  if (types.length === 0) return null;
   return (
-    <div className="flex items-center gap-4">
-      <MonoLabel size="2xs" tone="dim">
-        想定規模
-      </MonoLabel>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <span className="block h-3 w-3 border-hairline border-scale-lg bg-scale-lg/20 rounded-cockpit" />
-          <MonoLabel size="2xs" tone="default">
-            大
-          </MonoLabel>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="block h-3 w-3 border-hairline border-scale-md bg-scale-md/20 rounded-cockpit" />
-          <MonoLabel size="2xs" tone="mute">
-            中
-          </MonoLabel>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="block h-3 w-3 border-hairline border-scale-sm bg-scale-sm/20 rounded-cockpit" />
-          <MonoLabel size="2xs" tone="dim">
-            小
-          </MonoLabel>
-        </div>
-      </div>
+    <div className="flex items-center gap-3 flex-wrap">
+      {types.map((t) => {
+        const tone = disasterTone(t);
+        return (
+          <div key={t} className="flex items-center gap-1.5">
+            <span
+              className="block h-2.5 w-2.5 rounded-cockpit border"
+              style={{ backgroundColor: tone.fill, borderColor: tone.border }}
+            />
+            <span className="text-xs" style={{ color: tone.text }}>
+              {t}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

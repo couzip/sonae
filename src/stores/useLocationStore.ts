@@ -7,7 +7,7 @@ export interface PickedLocation {
   lat: number;
   lng: number;
   address: string;
-  source: 'gps' | 'address' | 'click';
+  source: 'gps' | 'address' | 'click' | 'drag';
 }
 
 export interface MunicipalityInfo {
@@ -22,7 +22,7 @@ interface LocationState {
   isLooking: boolean;
   error: string | null;
   setPicked: (p: PickedLocation) => void;
-  setMunicipality: (m: MunicipalityInfo) => void;
+  setMunicipality: (m: MunicipalityInfo | null) => void;
   setLooking: (v: boolean) => void;
   setError: (e: string | null) => void;
   reset: () => void;
@@ -36,7 +36,8 @@ export const useLocationStore = create<LocationState>()(
       isLooking: false,
       error: null,
       setPicked: (picked) => set({ picked, error: null }),
-      setMunicipality: (municipality) => set({ municipality, error: null }),
+      setMunicipality: (municipality) =>
+        set(municipality ? { municipality, error: null } : { municipality: null }),
       setLooking: (isLooking) => set({ isLooking }),
       setError: (error) => set({ error, isLooking: false }),
       reset: () => set({ picked: null, municipality: null, error: null, isLooking: false }),

@@ -69,6 +69,12 @@ export interface ParserOptions {
    * sha256 so callers can shape the path however they like.
    */
   workDirFor: (municipalityCode: string, sourceSha256: string) => string;
+  /**
+   * 'strict' (default): テキストレイヤ不足時に throw。frontend 経路で使う。
+   * 'full_ocr_fallback': テキストレイヤ不足時に全ページ OCR へフォールバック。
+   *   admin 経路 (画像 PDF 救済) で使う。完走に数十分かかり得る。
+   */
+  mode?: 'strict' | 'full_ocr_fallback';
 }
 
 export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQuery, SonaeSource> {
@@ -96,9 +102,18 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
     const tocText = await extractPdfText(blob.pdf_path, tocPagesNums);
     const usefulToc = tocPagesNums.filter((p) => hasUsefulTextLayer(tocText[p]));
     if (usefulToc.length < Math.ceil(tocPagesNums.length * 0.3)) {
-      throw new Error(
-        `この PDF はテキスト抽出ができません (${usefulToc.length}/${tocPagesNums.length} pages にしか日本語テキストレイヤがありません)。本アプリは画像のみの PDF をサポートしていません。`,
-      );
+      const mode = this.opts.mode ?? 'strict';
+      if (mode === 'strict') {
+        throw new Error(
+          `この PDF はテキスト抽出ができません (${usefulToc.length}/${tocPagesNums.length} pages にしか日本語テキストレイヤがありません)。本アプリは画像のみの PDF をサポートしていません。`,
+        );
+      }
+      ctx.emit({
+        type: 'log',
+        phase: 'toc',
+        message: `テキストレイヤ不足 (${usefulToc.length}/${tocPagesNums.length}) → 全ページ OCR フォールバック`,
+      });
+      return await this.parseWithFullOcr(blob, ctx, source, work, totalPages);
     }
     const tocMd = tocPagesNums
       .map((p) => `<!-- page ${p} -->\n${tocText[p] || ''}`)
@@ -172,7 +187,7 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
     ctx.emit({
       type: 'log',
       phase: 'ocr_section',
-      message: `★ 本文 start = ${startPage} ("${startHeading}")`,
+      message: `本文 start = page ${startPage} ("${startHeading}")`,
     });
 
     // Phase 4c: OCR `page_count` pages from startPage
@@ -214,6 +229,115 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
       phase: 'ocr_section',
       status: 'done',
       message: `OCR完了: ${collected.length}ページ`,
+    });
+
+    const ocr_markdown = collected.map((c) => `<!-- page ${c.pageNum} -->\n${c.text}`).join('\n\n');
+    writeFileSync(`${work}/ocr_combined.md`, ocr_markdown, 'utf-8');
+
+    return {
+      ocr_markdown,
+      section,
+      scanned_pages: collected.map((c) => c.pageNum),
+      source_sha256: blob.sha256,
+      source,
+    };
+  }
+
+  private async parseWithFullOcr(
+    blob: SonaeBlob,
+    ctx: PipelineContext<SonaeQuery, SonaeSource>,
+    source: SonaeSource,
+    work: string,
+    totalPages: number,
+  ): Promise<SonaeParsed> {
+    const allPageNums = Array.from({ length: totalPages }, (_, i) => i + 1);
+
+    ctx.emit({
+      type: 'phase',
+      phase: 'ocr_scan',
+      status: 'started',
+      message: `全 ${totalPages} ページを OCR (full_ocr_fallback)`,
+    });
+    const rendered = (await renderPages(blob.pdf_path, `${work}/full_pages`, allPageNums, 2.5)).sort(
+      (a, b) => a.pageNum - b.pageNum,
+    );
+    const ocrCache = new Map<number, string>();
+    for (const r of rendered) {
+      if (ctx.signal?.aborted) throw new Error('aborted');
+      const t0 = Date.now();
+      const text = await this.ocrPage(r.path);
+      const dt = ((Date.now() - t0) / 1000).toFixed(1);
+      ocrCache.set(r.pageNum, text);
+      ctx.emit({
+        type: 'log',
+        phase: 'ocr_scan',
+        message: `page ${r.pageNum}/${totalPages}: ${text.length}文字 (${dt}s)`,
+      });
+    }
+
+    const tocPages = Array.from({ length: Math.min(TOC_SCAN_PAGES, totalPages) }, (_, i) => i + 1);
+    const tocMd = tocPages
+      .map((p) => `<!-- page ${p} -->\n${ocrCache.get(p) || ''}`)
+      .join('\n\n')
+      .trim();
+    writeFileSync(`${work}/toc.md`, tocMd, 'utf-8');
+
+    ctx.emit({ type: 'phase', phase: 'toc', status: 'started', message: '目次を OCR から抽出' });
+    const section = await this.findTargetSection(tocMd, ctx);
+    if (!section) throw new Error('TOC から被害想定の章を特定できなかった (full OCR 経由)');
+    ctx.emit({
+      type: 'phase',
+      phase: 'toc',
+      status: 'done',
+      message: `セクション特定: ${section.title}`,
+    });
+
+    const titleNorm = norm(section.title);
+    const candidates: number[] = [];
+    for (const p of allPageNums) {
+      const tn = norm(ocrCache.get(p) || '');
+      if (tn.includes(titleNorm)) candidates.push(p);
+    }
+    ctx.emit({
+      type: 'phase',
+      phase: 'ocr_scan',
+      status: 'done',
+      message: `"${section.title}" ヒット ${candidates.length} ページ (OCR 経由)`,
+    });
+    if (!candidates.length) throw new Error('OCR ヒットなし → 中断');
+
+    let startPage: number | null = null;
+    let startHeading: string | null = null;
+    for (const p of candidates) {
+      const text = ocrCache.get(p) || '';
+      const heading = this.findTitleHeading(text, titleNorm);
+      if (heading) {
+        startPage = p;
+        startHeading = heading;
+        break;
+      }
+    }
+    if (startPage === null) throw new Error('heading 不検出 (full OCR 経由)');
+    ctx.emit({
+      type: 'log',
+      phase: 'ocr_section',
+      message: `本文 start = page ${startPage} ("${startHeading}")`,
+    });
+
+    const targetPageNums: number[] = [];
+    for (let i = 0; i < section.page_count; i++) {
+      const p = startPage + i;
+      if (p <= totalPages) targetPageNums.push(p);
+    }
+    const collected: { pageNum: number; text: string }[] = targetPageNums.map((p) => ({
+      pageNum: p,
+      text: ocrCache.get(p) ?? '',
+    }));
+    ctx.emit({
+      type: 'phase',
+      phase: 'ocr_section',
+      status: 'done',
+      message: `本文抽出 ${collected.length} ページ (全ページ OCR 結果から)`,
     });
 
     const ocr_markdown = collected.map((c) => `<!-- page ${c.pageNum} -->\n${c.text}`).join('\n\n');

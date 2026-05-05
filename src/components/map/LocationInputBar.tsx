@@ -3,7 +3,6 @@
 import { useLocationStore } from '@/stores/useLocationStore';
 import { CurrentLocationButton } from './CurrentLocationButton';
 import { GeocodeInput } from './GeocodeInput';
-import { MonoLabel } from '@/components/cockpit';
 
 async function lookup(payload: {
   mode: 'gps' | 'address' | 'click';
@@ -67,30 +66,17 @@ export function LocationInputBar() {
   };
 
   return (
-    <div className="absolute top-0 left-0 right-0 z-20 p-4">
-      <div className="corner-tick mx-auto max-w-3xl border-hairline border-hairline-strong bg-bg-sunken/95 backdrop-blur p-3 rounded-cockpit">
+    <div className="absolute top-0 left-0 right-0 z-20 p-4 pointer-events-none">
+      <div className="mx-auto max-w-3xl border-hairline border-hairline bg-bg-sunken/95 backdrop-blur p-3 rounded-cockpit pointer-events-auto">
         <div className="flex items-center gap-3">
           <CurrentLocationButton onResolved={onGps} onError={(msg) => setError(msg)} />
           <div className="h-6 w-px bg-hairline" />
           <GeocodeInput onSelect={onAddress} onError={(msg) => setError(msg)} />
-          <span className="text-ink-dim">
-            <MonoLabel size="2xs" tone="dim">
-              ← または地図クリック
-            </MonoLabel>
-          </span>
         </div>
         {(error || isLooking) && (
-          <div className="mt-2">
-            {isLooking && (
-              <MonoLabel size="2xs" tone="dim">
-                自治体特定中…
-              </MonoLabel>
-            )}
-            {error && !isLooking && (
-              <MonoLabel size="2xs" tone="default" className="text-scale-lg" uppercase={false}>
-                ⚠ {error}
-              </MonoLabel>
-            )}
+          <div className="mt-2 text-xs">
+            {isLooking && <span className="text-ink-mute">自治体を特定しています…</span>}
+            {error && !isLooking && <span className="text-scale-lg">{error}</span>}
           </div>
         )}
       </div>

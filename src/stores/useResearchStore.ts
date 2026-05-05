@@ -33,7 +33,7 @@ interface ResearchState {
   result: DisasterAssessment | null;
   error: string | null;
   /** SSE 接続を開始 */
-  start: (code: string) => void;
+  start: (code: string, opts?: { force?: boolean; name?: string; prefecture?: string }) => void;
   /** 接続を切る (ユーザー離脱時) */
   abort: () => void;
   reset: () => void;
@@ -70,7 +70,7 @@ export const useResearchStore = create<ResearchState>()((set, get) => ({
   result: null,
   error: null,
 
-  start: (code) => {
+  start: (code, opts) => {
     // 既存接続を閉じる
     currentSource?.close();
     currentSource = null;
@@ -83,7 +83,7 @@ export const useResearchStore = create<ResearchState>()((set, get) => ({
       logs: [
         {
           ts: Date.now(),
-          message: `=== リサーチ開始 (${code}) ===`,
+          message: `=== リサーチ開始 (${code})${opts?.force ? ' [強制再解析]' : ''} ===`,
           tone: 'info',
         },
       ],
@@ -93,7 +93,11 @@ export const useResearchStore = create<ResearchState>()((set, get) => ({
 
     if (typeof window === 'undefined') return;
 
-    const url = `/api/disasters?code=${encodeURIComponent(code)}`;
+    const params = new URLSearchParams({ code });
+    if (opts?.force) params.set('force', '1');
+    if (opts?.name) params.set('name', opts.name);
+    if (opts?.prefecture) params.set('prefecture', opts.prefecture);
+    const url = `/api/disasters?${params.toString()}`;
     const es = new EventSource(url);
     currentSource = es;
 

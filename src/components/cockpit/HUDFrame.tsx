@@ -1,9 +1,7 @@
 import { cn } from '@/lib/utils';
-import { MonoLabel } from './MonoLabel';
 
 interface HUDFrameProps {
   children: React.ReactNode;
-  serial?: string;
   title?: string;
   rightSlot?: React.ReactNode;
   className?: string;
@@ -12,7 +10,6 @@ interface HUDFrameProps {
 
 export function HUDFrame({
   children,
-  serial,
   title,
   rightSlot,
   className,
@@ -21,24 +18,13 @@ export function HUDFrame({
   return (
     <div
       className={cn(
-        'corner-tick relative flex h-full flex-col bg-bg-raised/30 backdrop-blur-sm',
+        'relative flex h-full flex-col bg-bg-raised/30 backdrop-blur-sm border-hairline border-hairline rounded-cockpit',
         className,
       )}
     >
-      {(serial || title || rightSlot) && (
-        <header className="flex items-center justify-between border-b-hairline border-hairline px-4 py-2">
-          <div className="flex items-center gap-3">
-            {serial && (
-              <MonoLabel size="2xs" tone="dim">
-                {serial}
-              </MonoLabel>
-            )}
-            {title && (
-              <MonoLabel size="xs" tone="default" uppercase>
-                {title}
-              </MonoLabel>
-            )}
-          </div>
+      {(title || rightSlot) && (
+        <header className="flex items-center justify-between border-b-hairline border-hairline px-4 py-2.5">
+          {title && <h2 className="font-sans text-sm text-ink">{title}</h2>}
           {rightSlot && <div className="flex items-center gap-2">{rightSlot}</div>}
         </header>
       )}

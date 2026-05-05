@@ -1,12 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { MonoLabel, HairlineDivider } from '@/components/cockpit';
+import { HairlineDivider } from '@/components/cockpit';
 import { cn } from '@/lib/utils';
 
 interface PriorityActionCardProps {
-  index: number;
-  actionId: string;
   label: string;
   reasoning: string;
   urgency: 'this_week' | 'this_month' | 'long_term';
@@ -28,8 +26,6 @@ const URGENCY_COLOR: Record<PriorityActionCardProps['urgency'], string> = {
 };
 
 export function PriorityActionCard({
-  index,
-  actionId,
   label,
   reasoning,
   urgency,
@@ -42,28 +38,17 @@ export function PriorityActionCard({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.32, delay, ease: [0.2, 0, 0, 1] }}
-      className="corner-tick border-hairline border-hairline rounded-cockpit p-4 bg-bg-raised/40"
+      className="border-hairline border-hairline rounded-cockpit p-4 bg-bg-raised/40"
     >
-      <header className="flex items-baseline justify-between mb-2">
-        <div className="flex items-baseline gap-3">
-          <MonoLabel size="2xs" tone="dim">
-            #{String(index + 1).padStart(2, '0')}
-          </MonoLabel>
-          <h3 className="font-sans text-base text-ink">{label}</h3>
-        </div>
+      <header className="flex items-baseline justify-between gap-3 mb-2">
+        <h3 className="font-sans text-base text-ink leading-snug">{label}</h3>
         <span
           className={cn(
-            'inline-flex items-center px-2 py-0.5 border-hairline rounded-cockpit',
+            'inline-flex items-center px-2 py-0.5 border-hairline rounded-cockpit shrink-0',
             URGENCY_COLOR[urgency],
           )}
         >
-          <MonoLabel
-            size="2xs"
-            tone="default"
-            className={URGENCY_COLOR[urgency].split(' ').find((c) => c.startsWith('text-')) ?? ''}
-          >
-            {URGENCY_LABEL[urgency]}
-          </MonoLabel>
+          <span className="text-xs">{URGENCY_LABEL[urgency]}</span>
         </span>
       </header>
 
@@ -71,27 +56,20 @@ export function PriorityActionCard({
 
       <HairlineDivider variant="dashed" />
 
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <MonoLabel size="2xs" tone="mute">
-          {effortSummary}
-        </MonoLabel>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {relevantUserFactors.map((f, i) => (
-            <span
-              key={i}
-              className="inline-flex items-center px-1.5 py-0.5 border-hairline border-hairline rounded-cockpit"
-            >
-              <MonoLabel size="2xs" tone="dim">
+      <div className="mt-2 flex items-center justify-between gap-3 flex-wrap">
+        <span className="text-xs text-ink-mute">{effortSummary}</span>
+        {relevantUserFactors.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {relevantUserFactors.map((f, i) => (
+              <span
+                key={i}
+                className="inline-flex items-center px-1.5 py-0.5 border-hairline border-hairline rounded-cockpit text-xs text-ink-dim"
+              >
                 {f}
-              </MonoLabel>
-            </span>
-          ))}
-        </div>
-      </div>
-      <div className="mt-2">
-        <MonoLabel size="2xs" tone="dim">
-          {actionId.toUpperCase()}
-        </MonoLabel>
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </motion.article>
   );

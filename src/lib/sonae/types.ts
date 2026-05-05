@@ -17,6 +17,8 @@ import type { DisasterAssessment } from './schemas';
 export interface SonaeQuery {
   municipality_code: string;
   city_name: string;
+  /** 同名自治体 (中央区 / 南区 等) を区別するため、検索クエリに前置する都道府県名 */
+  prefecture?: string;
 }
 
 export interface SonaeSource {

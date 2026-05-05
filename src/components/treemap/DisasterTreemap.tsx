@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { computeTreemap, type TreemapInput } from '@/lib/treemap/squarify';
 import type { DisasterAssessment, Scenario } from '@/lib/sonae';
 import { disasterJpToEnum } from '@/lib/sonae/client/disaster-mapping';
+import { disasterTone } from '@/lib/sonae/client/disaster-style';
+import { isMeaningful } from '@/lib/sonae/client/meaningful';
 import { MonoLabel } from '@/components/cockpit';
 import { TreemapNode } from './TreemapNode';
 
@@ -100,7 +102,10 @@ export function DisasterTreemap({ assessment, onSelect, selectedJpType }: Disast
         <svg width={size.w} height={size.h} className="block">
           {rects.map((r, i) => {
             const it = r.payload;
-            const scaleClass = r.weight >= 5 ? 'lg' : r.weight >= 2.5 ? 'md' : 'sm';
+            const scenarios = it.scenarios.map((s) => ({
+              name: isMeaningful(s.name) ? s.name : undefined,
+              scale: isMeaningful(s.scale) ? s.scale : undefined,
+            }));
             return (
               <TreemapNode
                 key={r.id}
@@ -108,10 +113,9 @@ export function DisasterTreemap({ assessment, onSelect, selectedJpType }: Disast
                 y={r.y}
                 width={r.width}
                 height={r.height}
-                label={it.enumType}
                 jaLabel={it.jpType}
-                scenarioCount={it.scenarios.length}
-                scaleClass={scaleClass as 'lg' | 'md' | 'sm'}
+                scenarios={scenarios}
+                tone={disasterTone(it.jpType)}
                 isSelected={selectedJpType === it.jpType}
                 onClick={() => onSelect(it.jpType, it.enumType)}
                 delay={i * 0.04}

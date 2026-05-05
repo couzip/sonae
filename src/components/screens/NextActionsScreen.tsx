@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFlowStore } from '@/stores/useFlowStore';
 import { useLocationStore } from '@/stores/useLocationStore';
 import { useChecklistStore } from '@/stores/useChecklistStore';
 import { useProfileStore } from '@/stores/useProfileStore';
 import { useRecommendationsStore } from '@/stores/useRecommendationsStore';
-import { HUDFrame, MonoLabel, HairlineDivider } from '@/components/cockpit';
+import { HUDFrame, HairlineDivider } from '@/components/cockpit';
 import { PriorityActionCard } from '@/components/recommendations/PriorityActionCard';
 import { StrategicInsightCard } from '@/components/recommendations/StrategicInsightCard';
+import { SaveReportPdfButton } from '@/components/report/SaveReportPdfButton';
+import type { Countermeasure } from '@/lib/sonae/client/countermeasures-filter';
 
 export function NextActionsScreen() {
   const reset = useFlowStore((s) => s.reset);
@@ -24,7 +26,19 @@ export function NextActionsScreen() {
   const error = useRecommendationsStore((s) => s.error);
   const generate = useRecommendationsStore((s) => s.generate);
 
-  // Partition checklist state for current code from raw items.
+  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!municipality) return;
+    fetch(`/api/checklist?code=${encodeURIComponent(municipality.code)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { items: Countermeasure[] }) => {
+        const m: Record<string, string> = {};
+        for (const it of d.items) m[it.id] = it.label;
+        setLabelMap(m);
+      })
+      .catch(() => {});
+  }, [municipality?.code]);
+
   const checklistState = useMemo(() => {
     if (!municipality) return { completed: [], pending: [], not_applicable: [], unanswered: [] };
     const out = {
@@ -45,7 +59,6 @@ export function NextActionsScreen() {
     return out;
   }, [items, municipality]);
 
-  // 自動生成: マウント時 (idle) または明示再実行
   useEffect(() => {
     if (!municipality) return;
     if (status === 'idle') {
@@ -63,31 +76,26 @@ export function NextActionsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [municipality?.code]);
 
+  const retry = () =>
+    municipality &&
+    generate(
+      municipality.code,
+      municipality.name,
+      { building: profileBuilding, household: profileHousehold, lifestyle: profileLifestyle },
+      checklistState,
+    );
+
   return (
-    <HUDFrame
-      serial="SONAE / SCN-05"
-      title="次の活動方針"
-      rightSlot={
-        <MonoLabel size="2xs" tone="dim">
-          PHASE 5 / 5
-        </MonoLabel>
-      }
-      className="h-full"
-      bodyClassName="p-4 overflow-auto"
-    >
+    <HUDFrame title="次の活動方針" className="h-full" bodyClassName="p-4 overflow-auto">
       <div className="flex flex-col gap-4 max-w-3xl mx-auto">
-        {/* Strategic Insights — 計画を練る視点 (生存率を上げるための戦略アドバイス) */}
         {result?.strategic_insights && result.strategic_insights.length > 0 && (
           <section>
-            <header className="flex items-baseline justify-between mb-2">
-              <h2 className="font-sans text-base text-ink">計画の核心</h2>
-              <MonoLabel size="2xs" tone="dim">
-                {String(result.strategic_insights.length).padStart(2, '0')} INSIGHTS
-              </MonoLabel>
+            <header className="mb-2">
+              <h3 className="font-sans text-base text-ink">計画の核心</h3>
+              <p className="text-xs text-ink-mute mt-0.5">
+                あなたの状況で、特に意識すべき視点です
+              </p>
             </header>
-            <p className="font-sans text-xs text-ink-mute mb-3 leading-relaxed">
-              あなたの状況で防災計画を練るとき、特に意識すべき視点です。
-            </p>
             <div className="flex flex-col gap-2">
               {result.strategic_insights.map((it, i) => (
                 <StrategicInsightCard
@@ -103,72 +111,38 @@ export function NextActionsScreen() {
           </section>
         )}
 
-        {/* Encouragement */}
         {result?.encouragement && (
-          <section className="border-hairline border-accent/40 bg-accent-soft/30 p-4 rounded-cockpit corner-tick">
-            <MonoLabel size="2xs" tone="accent">
-              これまでの取り組み
-            </MonoLabel>
-            <p className="mt-1 font-sans text-sm text-ink leading-relaxed">
-              {result.encouragement}
-            </p>
+          <section className="border-hairline border-accent/40 bg-accent-soft/30 p-4 rounded-cockpit">
+            <p className="text-sm text-ink leading-relaxed">{result.encouragement}</p>
           </section>
         )}
 
-        {/* Status */}
         {status === 'loading' && (
-          <div className="border-hairline border-hairline rounded-cockpit p-4">
-            <MonoLabel size="xs" tone="default">
-              Gemma 4 が優先行動を生成中…
-            </MonoLabel>
+          <div className="border-hairline border-hairline rounded-cockpit p-4 text-sm text-ink-mute">
+            優先行動を生成しています
           </div>
         )}
         {status === 'error' && (
           <div className="border-hairline border-scale-lg/70 rounded-cockpit p-4 bg-bg-raised/40">
-            <MonoLabel size="2xs" tone="default" className="text-scale-lg">
-              ⚠ 生成失敗
-            </MonoLabel>
-            <p className="mt-1 font-sans text-xs text-ink-mute">{error}</p>
+            <p className="text-sm text-scale-lg">{error}</p>
             <button
               type="button"
-              onClick={() =>
-                municipality &&
-                generate(
-                  municipality.code,
-                  municipality.name,
-                  {
-                    building: profileBuilding,
-                    household: profileHousehold,
-                    lifestyle: profileLifestyle,
-                  },
-                  checklistState,
-                )
-              }
-              className="mt-2 border-hairline border-hairline px-3 py-1 rounded-cockpit hover:border-accent transition-colors"
+              onClick={retry}
+              className="mt-2 border-hairline border-hairline px-3 py-1 rounded-cockpit hover:border-accent transition-colors text-xs text-ink"
             >
-              <MonoLabel size="2xs" tone="default">
-                ▶ 再試行
-              </MonoLabel>
+              再試行
             </button>
           </div>
         )}
 
-        {/* Priority actions */}
         {result?.priority_actions && result.priority_actions.length > 0 && (
           <section>
-            <header className="flex items-baseline justify-between mb-2">
-              <h2 className="font-sans text-base text-ink">優先行動</h2>
-              <MonoLabel size="2xs" tone="dim">
-                {String(result.priority_actions.length).padStart(2, '0')} ITEMS
-              </MonoLabel>
-            </header>
+            <h3 className="font-sans text-base text-ink mb-2">優先行動</h3>
             <div className="flex flex-col gap-2">
               {result.priority_actions.map((a, i) => (
                 <PriorityActionCard
                   key={a.action_id}
-                  index={i}
-                  actionId={a.action_id}
-                  label={a.action_id}
+                  label={labelMap[a.action_id] ?? a.action_id}
                   reasoning={a.reasoning}
                   urgency={a.urgency}
                   effortSummary={a.effort_summary}
@@ -180,17 +154,15 @@ export function NextActionsScreen() {
           </section>
         )}
 
-        {/* Long-term considerations */}
         {result?.long_term_considerations && result.long_term_considerations.length > 0 && (
           <>
             <HairlineDivider variant="dashed" />
             <section>
-              <h2 className="font-sans text-base text-ink mb-2">中長期で意識すること</h2>
-              <ul className="flex flex-col gap-1">
+              <h3 className="font-sans text-base text-ink mb-2">中長期で意識すること</h3>
+              <ul className="flex flex-col gap-1.5">
                 {result.long_term_considerations.map((c, i) => (
-                  <li key={i} className="flex gap-2 items-start">
-                    <span className="text-ink-dim">▸</span>
-                    <span className="font-sans text-sm text-ink-mute leading-relaxed">{c}</span>
+                  <li key={i} className="text-sm text-ink-mute leading-relaxed">
+                    {c}
                   </li>
                 ))}
               </ul>
@@ -198,23 +170,22 @@ export function NextActionsScreen() {
           </>
         )}
 
-        <div className="mt-4 flex justify-between">
+        <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
           <button
             onClick={() => setPhase('detail')}
-            className="border-hairline border-hairline px-4 py-2 rounded-cockpit hover:border-accent transition-colors"
+            className="border-hairline border-hairline px-4 py-2 rounded-cockpit hover:border-accent transition-colors text-sm text-ink-mute"
           >
-            <MonoLabel size="xs" tone="mute">
-              ◀ 詳細へ戻る
-            </MonoLabel>
+            詳細に戻る
           </button>
-          <button
-            onClick={reset}
-            className="border-hairline border-hairline px-4 py-2 rounded-cockpit hover:border-accent transition-colors"
-          >
-            <MonoLabel size="xs" tone="mute">
+          <div className="flex items-center gap-3">
+            <SaveReportPdfButton />
+            <button
+              onClick={reset}
+              className="border-hairline border-hairline px-4 py-2 rounded-cockpit hover:border-accent transition-colors text-sm text-ink-mute"
+            >
               最初から
-            </MonoLabel>
-          </button>
+            </button>
+          </div>
         </div>
       </div>
     </HUDFrame>

@@ -7,7 +7,9 @@
 
 export {
   runSonaePipeline,
+  runSonaePipelineAsAdmin,
   getSonaePipeline,
+  getSonaePipelineForAdmin,
   readSonaeResult,
   type SonaeRunOptions,
 } from './pipeline';

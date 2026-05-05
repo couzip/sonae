@@ -2,47 +2,46 @@
 
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import type { DisasterTone } from '@/lib/sonae/client/disaster-style';
+
+export interface TreemapNodeScenario {
+  name?: string;
+  scale?: string;
+}
 
 interface TreemapNodeProps {
   x: number;
   y: number;
   width: number;
   height: number;
-  label: string;
   jaLabel: string;
-  scenarioCount: number;
-  scaleClass: 'lg' | 'md' | 'sm';
+  scenarios: TreemapNodeScenario[];
+  tone: DisasterTone;
   onClick?: () => void;
   isSelected?: boolean;
   delay?: number;
 }
-
-const SCALE_BORDER: Record<TreemapNodeProps['scaleClass'], string> = {
-  lg: 'border-scale-lg/70',
-  md: 'border-scale-md/70',
-  sm: 'border-scale-sm/70',
-};
-const SCALE_BG: Record<TreemapNodeProps['scaleClass'], string> = {
-  lg: 'bg-scale-lg/15',
-  md: 'bg-scale-md/15',
-  sm: 'bg-scale-sm/10',
-};
 
 export function TreemapNode({
   x,
   y,
   width,
   height,
-  label,
   jaLabel,
-  scenarioCount,
-  scaleClass,
+  scenarios,
+  tone,
   onClick,
   isSelected,
   delay = 0,
 }: TreemapNodeProps) {
-  const showFull = width >= 120 && height >= 60;
-  const showCompact = width >= 64 && height >= 32 && !showFull;
+  const count = scenarios.length;
+  const showFull = width >= 140 && height >= 80;
+  const showCompact = width >= 64 && height >= 36 && !showFull;
+
+  const style = {
+    backgroundColor: tone.fill,
+    borderColor: isSelected ? '#14b8a6' : tone.border,
+  };
 
   return (
     <motion.foreignObject
@@ -57,35 +56,53 @@ export function TreemapNode({
       <button
         type="button"
         onClick={onClick}
+        style={style}
         className={cn(
-          'corner-tick group h-full w-full text-left p-2 border-hairline rounded-cockpit transition-colors',
-          SCALE_BORDER[scaleClass],
-          SCALE_BG[scaleClass],
-          isSelected && 'border-accent ring-1 ring-accent',
-          'hover:border-accent hover:bg-accent-soft/40 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent',
+          'group h-full w-full text-left p-3 rounded-cockpit transition-colors border',
+          isSelected && 'ring-1 ring-accent',
+          'hover:brightness-125 focus:outline-none focus:ring-1 focus:ring-accent',
         )}
       >
         {showFull && (
-          <div className="flex h-full flex-col">
-            <span className="font-mono text-mono-2xs uppercase tracking-cockpit text-ink-dim">
-              {label}
-            </span>
-            <span className="font-sans text-2xl text-ink leading-tight mt-0.5">{jaLabel}</span>
-            <span className="mt-auto font-mono text-mono-2xs tabular-nums text-ink-mute">
-              {String(scenarioCount).padStart(2, '0')} scenarios
-            </span>
+          <div className="flex h-full flex-col gap-1.5">
+            <div className="flex items-baseline gap-2">
+              <span
+                className="font-sans text-2xl leading-tight"
+                style={{ color: tone.text }}
+              >
+                {jaLabel}
+              </span>
+              <span className="text-xs text-ink-dim tabular-nums">{count} 件</span>
+            </div>
+            <ul className="flex flex-col gap-0.5 overflow-hidden">
+              {scenarios.map((s, i) => (
+                <li
+                  key={i}
+                  className="text-xs text-ink-mute leading-snug truncate"
+                >
+                  <span className="text-ink">{s.name ?? '想定シナリオ'}</span>
+                  {s.scale && <span className="text-ink-dim"> — {s.scale}</span>}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
         {showCompact && (
           <div className="flex h-full flex-col justify-between">
-            <span className="font-sans text-sm text-ink leading-tight truncate">{jaLabel}</span>
-            <span className="font-mono text-mono-2xs tabular-nums text-ink-dim">
-              {scenarioCount}
+            <span
+              className="font-sans text-sm leading-tight truncate"
+              style={{ color: tone.text }}
+            >
+              {jaLabel}
             </span>
+            <span className="text-xs text-ink-dim tabular-nums">{count} 件</span>
           </div>
         )}
         {!showFull && !showCompact && (
-          <span className="font-mono text-mono-2xs uppercase tracking-cockpit text-ink-mute truncate block">
+          <span
+            className="font-sans text-xs leading-tight truncate block"
+            style={{ color: tone.text }}
+          >
             {jaLabel}
           </span>
         )}

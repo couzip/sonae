@@ -28,7 +28,11 @@ interface DiscovererOptions {
   llmBaseURL: string;
   llmApiKey: string;
   llmModel: string;
-  /** Run Chromium headless. Default true. */
+  /**
+   * Run Chromium in headless mode. Default `false` to match the demo
+   * implementation — Google detects headless Chrome more aggressively and
+   * serves reCAPTCHA, which breaks the search flow.
+   */
   headless?: boolean;
 }
 
@@ -129,7 +133,7 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
       type: 'phase',
       phase: 'discovery',
       status: 'started',
-      message: `${query.city_name} の地域防災計画 PDF を browser-use で探索`,
+      message: `${query.city_name} の地域防災計画 本編 PDF を browser-use で探索`,
     });
 
     const llm = new ChatOpenAI({
@@ -144,22 +148,35 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
       maxCompletionTokens: 2048,
       timeout: 600_000,
     });
-    const profile = new BrowserProfile({ headless: this.opts.headless ?? true });
+    const profile = new BrowserProfile({ headless: this.opts.headless ?? false });
     const session = new BrowserSession({ browser_profile: profile });
 
+    const fullName = query.prefecture ? `${query.prefecture}${query.city_name}` : query.city_name;
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(fullName + ' 地域防災計画')}`;
     const TASK = `あなたはブラウザ調査エージェントです。
-目的: ${query.city_name} の地域防災計画(本編・概要版・各編どれでもよい)のPDFリンクを公式サイトの記事HTMLページから列挙する。
+目的: ${fullName} の地域防災計画 本編 (本体) の PDF を公式サイトから特定する。
+
+【本編の定義】
+- ラベルに「本編」「計画編」「対策編」「総則」「予防計画」「ダイジェスト」「概要」を含む単一 PDF
+- 数百ページ規模の本体ファイル
+
+【除外 (本編ではない)】
+- 「修正の概要」「修正部分」「新旧対照」「変更点」「差分」「改定の概要」 → 改訂差分のみで本体ではない
+- 「資料」「様式」「校区」「地区」「水防」「避難計画」 → 付属資料・付録
 
 【絶対遵守】
+- 検索ボックスへの type は禁止。Google 検索は **必ず下記の URL に直接 go_to_url で遷移** する
 - PDFリンクはクリックしない
 - read_file は呼ばない
 - click するのは公式サイトの HTMLページ へのリンクのみ
 
 【手順】
-1. https://www.google.com/search?q=${encodeURIComponent(query.city_name + ' 地域防災計画')} を開く
-2. 検索結果から ${query.city_name} の公式ドメインの HTML 記事ページを1つクリック
-3. 着地ページの全PDFリンクを find_elements か extract で取得
-4. done で結果を返す。スキーマ通り page_url と pdfs[] を埋めること。`;
+1. go_to_url で ${searchUrl} を開く
+2. 検索結果から ${fullName} の公式ドメインの HTML 記事ページをクリック
+3. ページ内の PDF リンクの中から「本編の定義」に合致するものを特定。除外条件にあたるものは選ばない
+4. 該当 PDF が見つかったら、page_url と pdfs[] (本編らしさ順、絶対 URL) を done で返す
+5. ページ内に本編 PDF が無い、または除外条件のみが見つかった場合は、別の HTML 記事ページを試す
+6. 数ページ試しても本編が見つからなければ done で空の pdfs[] を返して終了`;
 
     const agent = new Agent({
       task: TASK,
@@ -191,13 +208,27 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
       throw new Error('Phase 1: PDF が見つからない');
     }
 
-    const target = pickTarget(listing.pdfs, listing.page_url);
+    const reachable = await this.filterReachable(listing.pdfs, ctx);
+    if (!reachable.length) {
+      throw new Error(
+        `Phase 1: 発見した ${listing.pdfs.length} 件すべて到達不能 (HEAD 失敗)。URL 抽出が失敗している可能性`,
+      );
+    }
+    if (reachable.length < listing.pdfs.length) {
+      ctx.emit({
+        type: 'log',
+        phase: 'discovery',
+        message: `到達可能 ${reachable.length}/${listing.pdfs.length} 件 (残りは HEAD 失敗で除外)`,
+      });
+    }
+
+    const target = pickTarget(reachable, listing.page_url);
     ctx.emit({
       type: 'phase',
       phase: 'discovery',
       status: 'done',
-      message: `${listing.pdfs.length} 件発見 → ${target.label.slice(0, 60)}`,
-      data: listing.pdfs.slice(0, 5),
+      message: `${reachable.length} 件発見 → ${target.label.slice(0, 60)}`,
+      data: reachable.slice(0, 5),
     });
     return {
       pdf_url: target.url,
@@ -205,6 +236,31 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
       pdf_label: target.label,
       section_hint: '被害想定',
     };
+  }
+
+  private async filterReachable(
+    pdfs: PdfCandidate[],
+    ctx: DiscoverCtx,
+  ): Promise<PdfCandidate[]> {
+    const results = await Promise.all(
+      pdfs.map(async (p) => {
+        try {
+          const r = await fetch(p.url, {
+            method: 'HEAD',
+            redirect: 'follow',
+            signal: ctx.signal,
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+            },
+          });
+          return r.ok ? p : null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return results.filter((p): p is PdfCandidate => p !== null);
   }
 
   private async parseAgentResult(history: AgentHistory, ctx: DiscoverCtx): Promise<PdfList> {
@@ -311,6 +367,9 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
         /* ignore */
       }
     }
+    // 絶対 URL / root-absolute / 相対パス (bare 含む) すべてを拾う。
+    // 解決ミスで生まれた壊れた URL は後段の `filterReachable` (HEAD 検証) で
+    // 落とすので、抽出段階では捨てない。
     const urlRe = /(?:https?:\/\/[^\s<>"'`]+?\.pdf|[\w.\-/]+\.pdf)/gi;
     while ((m2 = urlRe.exec(text)) !== null) {
       const raw = m2[0].replace(/[)\].,'"]+$/, '');

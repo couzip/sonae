@@ -9,60 +9,55 @@ interface TriStateToggleProps {
   className?: string;
 }
 
-const CYCLE: ChecklistItemState[] = ['unanswered', 'done', 'pending', 'na'];
+type Cell = Exclude<ChecklistItemState, 'unanswered'>;
 
-const CELL_CONFIG: Record<
-  Exclude<ChecklistItemState, 'unanswered'>,
-  { glyph: string; label: string; toneClass: string }
-> = {
-  done: { glyph: '✓', label: 'できている', toneClass: 'text-accent' },
-  pending: { glyph: '—', label: 'まだ', toneClass: 'text-ink' },
-  na: { glyph: '/', label: '該当なし', toneClass: 'text-ink-mute' },
-};
+const CELLS: { value: Cell; label: string; activeClass: string; inactiveClass: string }[] = [
+  {
+    value: 'done',
+    label: 'できた',
+    activeClass: 'bg-accent text-bg',
+    inactiveClass: 'text-ink-mute hover:text-ink hover:bg-bg-raised',
+  },
+  {
+    value: 'pending',
+    label: 'まだ',
+    activeClass: 'bg-ink-mute/40 text-ink',
+    inactiveClass: 'text-ink-mute hover:text-ink hover:bg-bg-raised',
+  },
+  {
+    value: 'na',
+    label: '不要',
+    activeClass: 'bg-ink-dim/40 text-ink-mute',
+    inactiveClass: 'text-ink-dim hover:text-ink-mute hover:bg-bg-raised',
+  },
+];
 
 export function TriStateToggle({ value, onChange, className }: TriStateToggleProps) {
-  // キーボード: Tab で focus、1/2/3 で done/pending/na、0 で unanswered
-  const handleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === '1') onChange('done');
-    else if (e.key === '2') onChange('pending');
-    else if (e.key === '3') onChange('na');
-    else if (e.key === '0') onChange('unanswered');
-    else if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault();
-      const idx = CYCLE.indexOf(value);
-      onChange(CYCLE[(idx + 1) % CYCLE.length]);
-    }
-  };
-
   return (
     <div
       role="radiogroup"
-      tabIndex={0}
-      onKeyDown={handleKey}
       className={cn(
-        'inline-flex items-center gap-0 border-hairline border-hairline rounded-cockpit overflow-hidden focus:border-accent focus:outline-none',
+        'inline-flex items-stretch border-hairline border-hairline rounded-cockpit overflow-hidden',
         className,
       )}
     >
-      {(['done', 'pending', 'na'] as const).map((s) => {
-        const isActive = value === s;
-        const cfg = CELL_CONFIG[s];
+      {CELLS.map((c, i) => {
+        const isActive = value === c.value;
         return (
           <button
-            key={s}
+            key={c.value}
             type="button"
             role="radio"
             aria-checked={isActive}
-            aria-label={cfg.label}
-            onClick={() => onChange(isActive ? 'unanswered' : s)}
+            aria-label={c.label}
+            onClick={() => onChange(isActive ? 'unanswered' : c.value)}
             className={cn(
-              'h-7 w-7 flex items-center justify-center font-mono text-mono-sm transition-colors',
-              isActive ? cfg.toneClass + ' bg-bg-raised' : 'text-ink-dim hover:text-ink-mute',
-              s !== 'done' && 'border-l-hairline border-hairline',
+              'h-7 px-3 flex items-center justify-center text-xs leading-none transition-colors',
+              isActive ? c.activeClass : c.inactiveClass,
+              i > 0 && 'border-l-hairline border-hairline',
             )}
-            title={cfg.label}
           >
-            {isActive ? cfg.glyph : '·'}
+            {c.label}
           </button>
         );
       })}

@@ -24,6 +24,7 @@ import {
   type HttpSourceMeta,
   type LlmClient,
   type PipelineContext,
+  type ProgressEvent as PipelineProgressEvent,
   type RunOptions,
 } from '@/lib/core';
 
@@ -159,16 +160,22 @@ class PdfBlobCache {
 }
 
 // =============================================================================
-// Configured Pipeline (singleton)
+// Configured Pipeline (singleton, 2 系統)
+//   strict          — frontend 向け。テキストレイヤ無し PDF は throw
+//   full_ocr_fallback — admin 向け。テキストレイヤ無し PDF は全ページ OCR
+// 両系統で cache (PDF/OCR/result) は同じファイルを共有する。
 // =============================================================================
-let _pipeline: Pipeline<
+type SonaePipeline = Pipeline<
   SonaeQuery,
   SonaeSource,
   SonaeBlob,
   HttpSourceMeta,
   SonaeParsed,
   DisasterAssessment
-> | null = null;
+>;
+
+let _pipelineStrict: SonaePipeline | null = null;
+let _pipelineFullOcr: SonaePipeline | null = null;
 
 let _llm: LlmClient | null = null;
 let _ocr: LlmClient | null = null;
@@ -195,9 +202,7 @@ function getOcr(): LlmClient {
   return _ocr;
 }
 
-export function getSonaePipeline() {
-  if (_pipeline) return _pipeline;
-
+function buildPipeline(mode: 'strict' | 'full_ocr_fallback'): SonaePipeline {
   const root = cacheRoot();
   ensureCacheDirs(root);
 
@@ -221,7 +226,7 @@ export function getSonaePipeline() {
     llmBaseURL: process.env.LLM_BASE_URL ?? 'http://localhost:1234/v1',
     llmApiKey: process.env.LLM_API_KEY ?? 'not-needed',
     llmModel: process.env.LLM_MODEL ?? 'gemma-4-e4b-it@q4_k_s',
-    headless: process.env.BROWSER_USE_HEADLESS !== 'false',
+    headless: process.env.BROWSER_USE_HEADLESS === 'true',
   });
 
   const retriever = new SonaePdfRetriever({
@@ -236,11 +241,12 @@ export function getSonaePipeline() {
       mkdirSync(dir, { recursive: true });
       return dir;
     },
+    mode,
   });
 
   const extractor = new SonaeMapReduceExtractor({ llm: getLlm() });
 
-  _pipeline = new Pipeline<
+  return new Pipeline<
     SonaeQuery,
     SonaeSource,
     SonaeBlob,
@@ -248,7 +254,7 @@ export function getSonaePipeline() {
     SonaeParsed,
     DisasterAssessment
   >({
-    name: 'sonae-disaster-plan',
+    name: mode === 'strict' ? 'sonae-disaster-plan' : 'sonae-disaster-plan-admin',
     discoverer,
     retriever,
     parser,
@@ -261,7 +267,6 @@ export function getSonaePipeline() {
       parsed: parsedCache,
       result: resultCache,
       invalidateDownstream: async (key, ctx) => {
-        // PDF が更新されたら派生キャッシュをすべて無効化
         await parsedCache.invalidate(key, ctx);
         await resultCache.invalidate(key, ctx);
       },
@@ -269,8 +274,14 @@ export function getSonaePipeline() {
     freshness: adaptHttpFreshness(createHttpFreshness<{ url: string }>()),
     getBlobMeta: (blob) => blob.http,
   });
+}
 
-  return _pipeline;
+export function getSonaePipeline(): SonaePipeline {
+  return (_pipelineStrict ??= buildPipeline('strict'));
+}
+
+export function getSonaePipelineForAdmin(): SonaePipeline {
+  return (_pipelineFullOcr ??= buildPipeline('full_ocr_fallback'));
 }
 
 export interface SonaeRunOptions {
@@ -282,6 +293,10 @@ export interface SonaeRunOptions {
   forceParseAndExtract?: boolean;
   /** @deprecated Renamed to `forceParseAndExtract`. */
   forceExtract?: boolean;
+  /** registry に未登録の自治体を実行する時に呼出側が補う city name。 */
+  cityName?: string;
+  /** registry に未登録の自治体を実行する時に呼出側が補う prefecture (例: 神奈川県)。 */
+  prefecture?: string;
 }
 
 /**
@@ -293,17 +308,88 @@ export async function runSonaePipeline(
   code: string,
   opts: SonaeRunOptions,
 ): Promise<DisasterAssessment> {
+  return await runWith(getSonaePipeline(), code, opts);
+}
+
+/**
+ * admin 経路。テキストレイヤ無し PDF を受け取った場合に全ページ OCR
+ * フォールバックする以外、通常の `runSonaePipeline` と同等。cache は frontend と
+ * 共有されるため、admin が温めた cache はそのまま frontend からヒットする。
+ */
+export async function runSonaePipelineAsAdmin(
+  code: string,
+  opts: SonaeRunOptions,
+): Promise<DisasterAssessment> {
+  return await runWith(getSonaePipelineForAdmin(), code, opts);
+}
+
+interface InflightJob {
+  promise: Promise<DisasterAssessment>;
+  log: PipelineProgressEvent[];
+  subscribers: Set<EmitFn>;
+}
+
+const _inflight = new Map<string, InflightJob>();
+
+async function runWith(
+  pipeline: SonaePipeline,
+  code: string,
+  opts: SonaeRunOptions,
+): Promise<DisasterAssessment> {
   const muni = findByCode(code);
-  if (!muni) throw new Error(`unknown municipality code: ${code}`);
-  const query: SonaeQuery = { municipality_code: code, city_name: muni.name };
-  const pipeline = getSonaePipeline();
+  const cityName = muni?.name ?? opts.cityName;
+  if (!cityName) throw new Error(`unknown municipality code: ${code}`);
+  const prefecture = muni?.prefecture ?? opts.prefecture;
+  const query: SonaeQuery = {
+    municipality_code: code,
+    city_name: cityName,
+    prefecture,
+  };
+
+  const dedupeKey = `${pipeline.config.name}:${opts.force ? 'force' : 'normal'}:${code}`;
+
+  const existing = _inflight.get(dedupeKey);
+  if (existing) {
+    for (const ev of existing.log) opts.emit(ev);
+    existing.subscribers.add(opts.emit);
+    try {
+      return await existing.promise;
+    } finally {
+      existing.subscribers.delete(opts.emit);
+    }
+  }
+
+  const job: InflightJob = {
+    promise: undefined as unknown as Promise<DisasterAssessment>,
+    log: [],
+    subscribers: new Set([opts.emit]),
+  };
+
+  const broadcast: EmitFn = (event) => {
+    job.log.push(event);
+    for (const sub of job.subscribers) {
+      try {
+        sub(event);
+      } catch {
+        /* subscriber 切断は無視 */
+      }
+    }
+  };
+
   const runOpts: RunOptions = {
-    emit: opts.emit,
+    emit: broadcast,
     signal: opts.signal,
     force: opts.force,
     forceParseAndExtract: opts.forceParseAndExtract ?? opts.forceExtract,
   };
-  return await pipeline.run(query, runOpts);
+
+  job.promise = pipeline.run(query, runOpts);
+  _inflight.set(dedupeKey, job);
+  try {
+    return await job.promise;
+  } finally {
+    _inflight.delete(dedupeKey);
+  }
 }
 
 export type { DisasterAssessment, NextActions };

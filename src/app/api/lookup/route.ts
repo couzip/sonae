@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { findByName, findNearestByCoords } from '@/lib/sonae';
-import { forwardGeocode, reverseGeocode } from '@/lib/geocode';
+import { findByCode, findByName, findNearestByCoords } from '@/lib/sonae';
+import { forwardGeocode, heartRailsReverse, reverseGeocode } from '@/lib/geocode';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,39 +28,65 @@ export async function POST(req: Request) {
   }
   const input = parsed.data;
 
-  // 1. 座標 → reverse geocode → name で registry 検索 → fallback nearest
+  // 1. 座標 → 解決順序:
+  //    (a) GSI reverse → muniCd を curated registry に照合
+  //    (b) HeartRails reverse → city/prefecture を直接取得 (全国対応)
+  //    (c) どちらも空なら 404
   if (input.mode === 'gps' || input.mode === 'click') {
     const { lat, lng } = input.value;
     let address = '';
-    let muni = null;
+    let muniCd = '';
     try {
       const rev = await reverseGeocode(lat, lng);
       if (rev) {
         address = rev.address;
-        // GSI の muniCd は別系統。registry の name で寄せる。
-        // address に都道府県+市区が含まれることが多いので部分一致で当てる。
-        muni = findByName(address);
+        muniCd = rev.city_code;
       }
     } catch {
-      // ignore
+      /* ignore */
     }
-    if (!muni) muni = findNearestByCoords(lat, lng);
-    if (!muni) {
-      return NextResponse.json(
-        {
-          error: 'no municipality match',
-          resolved: { lat, lng, address },
-        },
-        { status: 404 },
-      );
+
+    // (a) curated registry hit (alias / disaster_plan_url pin がある場合)
+    let muni = muniCd ? findByCode(muniCd) : null;
+    if (!muni && address) muni = findByName(address);
+    if (muni) {
+      return NextResponse.json({
+        municipality_code: muni.code,
+        name: muni.name,
+        prefecture: muni.prefecture,
+        source: 'registry',
+        resolved: { lat, lng, address: address || `${muni.prefecture}${muni.name}` },
+      });
     }
-    return NextResponse.json({
-      municipality_code: muni.code,
-      name: muni.name,
-      prefecture: muni.prefecture,
-      source: 'registry',
-      resolved: { lat, lng, address: address || `${muni.prefecture}${muni.name}` },
-    });
+
+    // (b) HeartRails で直接 city / prefecture を取得 → 全国対応
+    try {
+      const hr = await heartRailsReverse(lat, lng);
+      if (hr) {
+        return NextResponse.json({
+          municipality_code: muniCd || `hr_${hr.prefecture}_${hr.city}`,
+          name: hr.city,
+          prefecture: hr.prefecture,
+          source: 'heartrails',
+          resolved: {
+            lat,
+            lng,
+            address: address || `${hr.prefecture}${hr.city}${hr.town}`,
+          },
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+
+    // (c) いずれも解決できず
+    return NextResponse.json(
+      {
+        error: '場所を特定できませんでした',
+        resolved: { lat, lng, address },
+      },
+      { status: 404 },
+    );
   }
 
   // 2. address → forward geocode → 自治体名で registry 検索

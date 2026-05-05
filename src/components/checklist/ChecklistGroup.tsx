@@ -3,7 +3,6 @@
 import { useMemo } from 'react';
 import type { Countermeasure } from '@/lib/sonae/client/countermeasures-filter';
 import { ChecklistItem } from './ChecklistItem';
-import { MonoLabel } from '@/components/cockpit';
 
 interface ChecklistGroupProps {
   items: Countermeasure[];
@@ -39,26 +38,18 @@ export function ChecklistGroup({
   }, [items, groupBy]);
 
   if (!items.length) {
-    return (
-      <div className="py-8 text-center">
-        <MonoLabel size="xs" tone="dim">
-          該当する対策がありません
-        </MonoLabel>
-      </div>
-    );
+    return <div className="py-8 text-center text-sm text-ink-mute">該当する対策がありません</div>;
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       {grouped.map(([key, list]) => (
         <section key={key}>
-          <header className="flex items-baseline justify-between mb-2">
-            <h3 className="font-sans text-sm text-ink">
+          <header className="flex items-baseline gap-2 mb-2">
+            <h4 className="font-sans text-sm text-ink">
               {groupBy === 'disaster_group' ? (DISASTER_GROUP_LABEL[key] ?? key) : key}
-            </h3>
-            <MonoLabel size="2xs" tone="dim">
-              {String(list.length).padStart(2, '0')} ITEMS
-            </MonoLabel>
+            </h4>
+            <span className="text-xs text-ink-dim tabular-nums">{list.length}</span>
           </header>
           <ul className="flex flex-col gap-1.5">
             {list.map((it) => (

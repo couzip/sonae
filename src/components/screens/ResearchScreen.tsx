@@ -4,32 +4,26 @@ import { useEffect } from 'react';
 import { useFlowStore } from '@/stores/useFlowStore';
 import { useLocationStore } from '@/stores/useLocationStore';
 import { useResearchStore } from '@/stores/useResearchStore';
-import MapBaseClient from '@/components/map/MapBase';
 import { ResearchProgress } from '@/components/progress/ResearchProgress';
 import { BuildingForm } from '@/components/profile/BuildingForm';
-import { HUDFrame, MonoLabel, HairlineDivider } from '@/components/cockpit';
+import { HUDFrame, HairlineDivider } from '@/components/cockpit';
 
 export function ResearchScreen() {
   const setPhase = useFlowStore((s) => s.setPhase);
   const municipality = useLocationStore((s) => s.municipality);
-  const picked = useLocationStore((s) => s.picked);
   const start = useResearchStore((s) => s.start);
   const status = useResearchStore((s) => s.status);
   const error = useResearchStore((s) => s.error);
+  const lastCode = useResearchStore((s) => s.code);
 
-  // 場所が決まっていなければ pick へ戻す
   useEffect(() => {
-    if (!municipality) {
-      setPhase('pick');
-      return;
+    if (!municipality) return;
+    if (status === 'running') return;
+    if (lastCode !== municipality.code || status === 'idle') {
+      start(municipality.code, { name: municipality.name, prefecture: municipality.prefecture });
     }
-    // SSE 開始 (idle 状態のみ)
-    if (status === 'idle') {
-      start(municipality.code);
-    }
-  }, [municipality, status, start, setPhase]);
+  }, [municipality, status, start, lastCode]);
 
-  // 完了時に grid へ自動遷移
   useEffect(() => {
     if (status === 'done' || status === 'cache_hit') {
       const t = setTimeout(() => setPhase('grid'), 800);
@@ -37,43 +31,35 @@ export function ResearchScreen() {
     }
   }, [status, setPhase]);
 
-  if (!municipality) return null;
+  if (!municipality) {
+    return (
+      <div className="relative h-full w-full flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-sm text-ink-mute bg-bg-sunken/85 backdrop-blur p-4 rounded-cockpit border-hairline border-hairline">
+          <span>場所情報を読み込んでいます</span>
+          <button
+            type="button"
+            onClick={() => setPhase('pick')}
+            className="border-hairline border-hairline px-3 py-1.5 rounded-cockpit hover:border-accent transition-colors text-ink"
+          >
+            場所選択に戻る
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative h-full w-full bg-bg">
-      <MapBaseClient
-        center={picked ? [picked.lng, picked.lat] : undefined}
-        pin={picked}
-        className="absolute inset-0 opacity-50"
-        interactive={false}
-      />
-
-      {/* darken overlay */}
-      <div className="absolute inset-0 bg-bg/70 backdrop-blur-sm pointer-events-none" />
+    <div className="relative h-full w-full">
+      <div className="absolute inset-0 bg-bg/55 pointer-events-none" />
 
       <div className="relative z-10 grid h-full grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 p-4">
-        {/* Main: progress */}
-        <HUDFrame
-          serial="SONAE / SCN-02"
-          title="リサーチ"
-          rightSlot={
-            <MonoLabel size="2xs" tone="dim">
-              PHASE 2 / 5
-            </MonoLabel>
-          }
-          className="overflow-hidden"
-          bodyClassName="p-4"
-        >
+        <HUDFrame title="解析中" className="overflow-hidden" bodyClassName="p-4">
           <div className="flex flex-col gap-4 h-full">
-            <header className="flex items-baseline justify-between">
-              <div>
-                <h2 className="font-sans text-lg text-ink leading-tight">
-                  {municipality.prefecture} {municipality.name}
-                </h2>
-                <MonoLabel size="2xs" tone="mute">
-                  CODE {municipality.code} · 地域防災計画 PDF を解析中
-                </MonoLabel>
-              </div>
+            <header>
+              <h2 className="font-sans text-lg text-ink leading-tight">
+                {municipality.prefecture} {municipality.name}
+              </h2>
+              <p className="text-xs text-ink-mute mt-0.5">地域防災計画を解析しています</p>
             </header>
 
             <HairlineDivider variant="dashed" />
@@ -82,51 +68,35 @@ export function ResearchScreen() {
 
             {error && (
               <div className="border-hairline border-scale-lg bg-bg-raised/50 p-3 rounded-cockpit">
-                <MonoLabel size="2xs" tone="default" className="text-scale-lg">
-                  ⚠ ERROR
-                </MonoLabel>
-                <p className="font-sans text-sm text-ink mt-1">{error}</p>
+                <div className="text-sm text-scale-lg">{error}</div>
                 <div className="mt-2 flex gap-2">
                   <button
                     type="button"
-                    onClick={() => start(municipality.code)}
-                    className="border-hairline border-hairline px-3 py-1 rounded-cockpit hover:border-accent transition-colors"
+                    onClick={() => start(municipality.code, { name: municipality.name, prefecture: municipality.prefecture })}
+                    className="border-hairline border-hairline px-3 py-1 rounded-cockpit hover:border-accent transition-colors text-xs text-ink"
                   >
-                    <MonoLabel size="2xs" tone="default">
-                      ▶ 再試行
-                    </MonoLabel>
+                    再試行
                   </button>
                   <button
                     type="button"
                     onClick={() => setPhase('pick')}
-                    className="border-hairline border-hairline px-3 py-1 rounded-cockpit hover:border-accent transition-colors"
+                    className="border-hairline border-hairline px-3 py-1 rounded-cockpit hover:border-accent transition-colors text-xs text-ink-mute"
                   >
-                    <MonoLabel size="2xs" tone="mute">
-                      ◀ 場所を変える
-                    </MonoLabel>
+                    場所を変える
                   </button>
                 </div>
               </div>
             )}
 
             {(status === 'done' || status === 'cache_hit') && (
-              <div className="border-hairline border-accent bg-accent-soft p-3 rounded-cockpit">
-                <MonoLabel size="2xs" tone="accent">
-                  PIPELINE COMPLETE
-                </MonoLabel>
-                <p className="font-sans text-sm text-ink mt-1">災害グリッドへ遷移中…</p>
+              <div className="border-hairline border-accent bg-accent-soft p-3 rounded-cockpit text-sm text-ink">
+                解析完了。災害一覧に進みます。
               </div>
             )}
           </div>
         </HUDFrame>
 
-        {/* Side: profile form */}
-        <HUDFrame
-          serial="SONAE / SCN-02b"
-          title="建物プロファイル"
-          className="overflow-hidden hidden lg:flex"
-          bodyClassName="p-4"
-        >
+        <HUDFrame title="建物の情報" className="overflow-hidden hidden lg:flex" bodyClassName="p-4">
           <BuildingForm />
         </HUDFrame>
       </div>

@@ -96,7 +96,7 @@ export function LifestyleForm() {
           })}
         </div>
         <p className="mt-1.5 font-sans text-xs text-ink-dim leading-relaxed">
-          海岸沿い→津波対策、山間部→土砂対策などが追加表示されます。
+          海岸沿いなら津波対策、山間部なら土砂対策など、選択に応じた項目が追加表示されます。
         </p>
       </div>
 

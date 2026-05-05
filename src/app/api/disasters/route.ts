@@ -14,6 +14,8 @@ export async function GET(req: Request) {
   const code = searchParams.get('code');
   const force = searchParams.get('force') === '1';
   const forceExtract = searchParams.get('force_ocr') === '1';
+  const name = searchParams.get('name') ?? undefined;
+  const prefecture = searchParams.get('prefecture') ?? undefined;
 
   if (!code) return new Response('code required', { status: 400 });
 
@@ -37,6 +39,8 @@ export async function GET(req: Request) {
           signal: abortController.signal,
           force,
           forceExtract,
+          cityName: name,
+          prefecture,
         });
       } catch (err: any) {
         emit({ type: 'error', message: `エラー: ${err?.message ?? String(err)}` });

@@ -139,8 +139,13 @@ export class Pipeline<TQuery, TSource, TBlob, TBlobMeta, TParsed, TResult> {
 
     // ---------------------------------------------------------------
     // Discover (or skip via source cache)
+    //
+    // 新規 discover の結果は「retrieval が成功するまで」cache に書かない。
+    // 壊れた URL を抱えたまま source cache に居座ると、次回以降も同じ 404 を
+    // 引き続け、自治体ごとに手動で削除しないと回復不能になるため。
     // ---------------------------------------------------------------
     let source: TSource;
+    let sourceWasFreshlyDiscovered = false;
     if (!force && caches.source) {
       const cached = await caches.source.read(key, ctx);
       if (cached !== null) {
@@ -148,11 +153,11 @@ export class Pipeline<TQuery, TSource, TBlob, TBlobMeta, TParsed, TResult> {
         source = cached;
       } else {
         source = await this.config.discoverer.discover(query, ctx);
-        await caches.source.write(key, source, ctx);
+        sourceWasFreshlyDiscovered = true;
       }
     } else {
       source = await this.config.discoverer.discover(query, ctx);
-      if (caches.source) await caches.source.write(key, source, ctx);
+      sourceWasFreshlyDiscovered = true;
     }
     // Make `source` visible to downstream layers via context.
     ctx.source = source;
@@ -181,6 +186,11 @@ export class Pipeline<TQuery, TSource, TBlob, TBlobMeta, TParsed, TResult> {
         const meta = this.config.getBlobMeta(blob);
         if (meta !== undefined) await caches.blobMeta.write(key, meta, ctx);
       }
+    }
+
+    // Retrieval が通った時点で source は実用可能と確定。ここで初めて cache に書く。
+    if (sourceWasFreshlyDiscovered && caches.source) {
+      await caches.source.write(key, source, ctx);
     }
 
     // ---------------------------------------------------------------

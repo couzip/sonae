@@ -15,8 +15,7 @@ let _registry: Municipality[] | null = null;
 
 function loadRegistry(): Municipality[] {
   if (_registry) return _registry;
-  const path = join(process.cwd(), 'data', 'municipalities.yaml');
-  const raw = readFileSync(path, 'utf-8');
+  const raw = readFileSync(registryYamlPath(), 'utf-8');
   const data = parseYaml(raw);
   _registry = z.array(MunicipalitySchema).parse(data);
   return _registry;
@@ -63,4 +62,15 @@ export function findNearestByCoords(lat: number, lng: number): Municipality | nu
 
 export function listRegistry(): Municipality[] {
   return loadRegistry();
+}
+
+/**
+ * 管理画面が yaml を書き換えた直後に呼ぶ。次回 `loadRegistry()` で再パースさせる。
+ */
+export function invalidateRegistryCache(): void {
+  _registry = null;
+}
+
+export function registryYamlPath(): string {
+  return join(process.cwd(), 'data', 'municipalities.yaml');
 }

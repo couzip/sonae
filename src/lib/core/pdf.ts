@@ -17,14 +17,39 @@
  *   avoid Windows backslash issues with the strict pdfjs URL parser.
  */
 
-import { createRequire } from 'node:module';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
-const requireFromHere = createRequire(import.meta.url);
-const _pdfjsRoot = dirname(requireFromHere.resolve('pdfjs-dist/package.json'));
+/**
+ * Resolve `pdfjs-dist`'s on-disk root.
+ *
+ * `createRequire(import.meta.url)` does not work here in Next.js: the bundler
+ * rewrites `import.meta.url` to a virtual `(rsc)/...` path that doesn't exist
+ * on disk, so `pdfjs` then tries to load `cmaps/...` and `standard_fonts/...`
+ * from a non-existent location and emits "Unable to load font data" warnings.
+ *
+ * `process.cwd()` is the project root for `next dev` / `next start` / Vercel /
+ * Docker (when WORKDIR is the project root) — i.e. every environment Next.js
+ * actually targets.
+ */
+function resolvePdfjsRoot(): string {
+  // Path 1: top-level dependency (what `npm install pdfjs-dist` gives you).
+  const direct = join(process.cwd(), 'node_modules', 'pdfjs-dist');
+  if (existsSync(join(direct, 'package.json'))) return direct;
+  // Path 2: pnpm or yarn-pnp shape (rare here, but cheap to try).
+  const pnpm = join(process.cwd(), 'node_modules', '.pnpm');
+  if (existsSync(pnpm)) {
+    // We don't try to enumerate pnpm hashes here. If you hit this, install
+    // pdfjs-dist as a top-level dependency in your fork.
+  }
+  throw new Error(
+    `pdfjs-dist not found at ${direct}. Install it as a top-level dependency.`,
+  );
+}
+
+const _pdfjsRoot = resolvePdfjsRoot();
 const _cMapUrl = pathToFileURL(join(_pdfjsRoot, 'cmaps') + '/').href;
 const _standardFontDataUrl = pathToFileURL(join(_pdfjsRoot, 'standard_fonts') + '/').href;
 

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { MonoLabel } from '@/components/cockpit';
 import { cn } from '@/lib/utils';
 
 interface CurrentLocationButtonProps {
@@ -48,16 +47,11 @@ export function CurrentLocationButton({
       onClick={handle}
       disabled={loading}
       className={cn(
-        'inline-flex items-center gap-2 border-hairline border-hairline bg-bg-raised/80 hover:border-accent hover:bg-accent-soft px-3 py-2 rounded-cockpit transition-colors disabled:opacity-50 disabled:cursor-wait',
+        'whitespace-nowrap border-hairline border-hairline bg-bg-raised/80 hover:border-accent hover:bg-accent-soft px-3 py-2 rounded-cockpit transition-colors disabled:opacity-50 disabled:cursor-wait text-sm text-ink',
         className,
       )}
     >
-      <span className="text-accent" aria-hidden>
-        ◉
-      </span>
-      <MonoLabel size="xs" tone={loading ? 'dim' : 'default'}>
-        {loading ? '取得中…' : '現在地から'}
-      </MonoLabel>
+      {loading ? '取得中…' : '現在地から'}
     </button>
   );
 }
