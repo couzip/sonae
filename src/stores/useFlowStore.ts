@@ -21,6 +21,6 @@ export const useFlowStore = create<FlowState>()((set) => ({
   phase: 'pick',
   selectedDisaster: null,
   setPhase: (phase) => set({ phase }),
-  openDisaster: (sel) => set({ phase: 'detail', selectedDisaster: sel }),
+  openDisaster: (sel) => set({ selectedDisaster: sel }),
   reset: () => set({ phase: 'pick', selectedDisaster: null }),
 }));

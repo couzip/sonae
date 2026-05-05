@@ -31,3 +31,24 @@ const DISASTER_MAP: Record<string, string> = {
 export function disasterJpToEnum(jp: string): string {
   return DISASTER_MAP[jp] ?? jp.toLowerCase();
 }
+
+// enum → 表示用日本語ラベル (countermeasures.yaml の applicable_disasters 用)
+const ENUM_TO_JP: Record<string, string> = {
+  earthquake: '地震',
+  tsunami: '津波',
+  flood: '洪水',
+  inland_flood: '内水氾濫',
+  storm_surge: '高潮',
+  landslide: '土砂災害',
+  volcanic: '火山',
+  storm: '雪害',
+  tornado: '竜巻',
+  urban_fire: '都市火災',
+  nuclear: '放射性物質',
+  transport: '輸送災害',
+  common: '共通',
+};
+
+export function disasterEnumToJp(enumName: string): string {
+  return ENUM_TO_JP[enumName] ?? enumName;
+}

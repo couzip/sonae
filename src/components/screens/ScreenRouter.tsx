@@ -8,14 +8,13 @@ import { useResearchStore } from '@/stores/useResearchStore';
 import { PlacePickerScreen } from './PlacePickerScreen';
 import { ResearchScreen } from './ResearchScreen';
 import { DisasterGridScreen } from './DisasterGridScreen';
-import { DisasterDetailScreen } from './DisasterDetailScreen';
 import { NextActionsScreen } from './NextActionsScreen';
 
 const SCREENS = {
   pick: PlacePickerScreen,
   research: ResearchScreen,
   grid: DisasterGridScreen,
-  detail: DisasterDetailScreen,
+  detail: DisasterGridScreen,
   actions: NextActionsScreen,
 } as const;
 
@@ -26,11 +25,18 @@ export function ScreenRouter() {
   const result = useResearchStore((s) => s.result);
 
   useEffect(() => {
-    if ((phase === 'research' || phase === 'grid' || phase === 'detail' || phase === 'actions') && !municipality) {
+    if (phase === 'detail') {
+      setPhase('grid');
+      return;
+    }
+    if (
+      (phase === 'research' || phase === 'grid' || phase === 'actions') &&
+      !municipality
+    ) {
       setPhase('pick');
       return;
     }
-    if ((phase === 'grid' || phase === 'detail' || phase === 'actions') && !result) {
+    if ((phase === 'grid' || phase === 'actions') && !result) {
       setPhase('research');
     }
   }, [phase, municipality, result, setPhase]);

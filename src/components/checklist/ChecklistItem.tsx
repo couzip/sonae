@@ -1,9 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { Countermeasure } from '@/lib/sonae/client/countermeasures-filter';
 import { useChecklistStore } from '@/stores/useChecklistStore';
+import { useResearchStore } from '@/stores/useResearchStore';
 import { SourceLink } from '@/components/cockpit';
+import {
+  disasterEnumToJp,
+  disasterJpToEnum,
+} from '@/lib/sonae/client/disaster-mapping';
+import { disasterTone } from '@/lib/sonae/client/disaster-style';
 import { TriStateToggle } from './TriStateToggle';
 
 interface ChecklistItemProps {
@@ -21,6 +27,24 @@ export function ChecklistItem({ item, municipalityCode }: ChecklistItemProps) {
   const [expanded, setExpanded] = useState(false);
   const value = useChecklistStore((s) => s.items[`${municipalityCode}:${item.id}`] ?? 'unanswered');
   const setVal = useChecklistStore((s) => s.set);
+  const result = useResearchStore((s) => s.result);
+
+  const detectedEnums = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of result?.by_disaster_type ?? []) {
+      if (d.scenarios.length === 0) continue;
+      set.add(disasterJpToEnum(d.disaster_type));
+    }
+    return set;
+  }, [result]);
+
+  const isCommon =
+    item.disaster_group === 'common' || item.applicable_disasters.includes('common');
+  const labels = isCommon
+    ? ['共通']
+    : item.applicable_disasters
+        .filter((e) => detectedEnums.has(e))
+        .map((e) => disasterEnumToJp(e));
 
   return (
     <li className="border-hairline border-hairline rounded-cockpit hover:border-ink-mute transition-colors">
@@ -32,9 +56,29 @@ export function ChecklistItem({ item, municipalityCode }: ChecklistItemProps) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="flex-1 text-left"
+          className="flex-1 text-left flex flex-col gap-1 min-w-0"
         >
           <span className="font-sans text-sm text-ink">{item.label}</span>
+          {labels.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap">
+              {labels.map((jp) => {
+                const tone = disasterTone(jp);
+                return (
+                  <span
+                    key={jp}
+                    className="inline-flex items-center px-1.5 py-0.5 rounded-cockpit border text-xs leading-none"
+                    style={{
+                      backgroundColor: tone.fill,
+                      borderColor: tone.border,
+                      color: tone.text,
+                    }}
+                  >
+                    {jp}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </button>
         <span className="text-xs text-ink-mute whitespace-nowrap">
           {EFFORT_LABEL[item.effort.time]}・{EFFORT_LABEL[item.effort.cost]}

@@ -53,13 +53,15 @@ export function ResearchScreen() {
       <div className="absolute inset-0 bg-bg/55 pointer-events-none" />
 
       <div className="relative z-10 grid h-full grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 p-4">
-        <HUDFrame title="解析中" className="overflow-hidden" bodyClassName="p-4">
+        <HUDFrame title="情報を収集中" className="overflow-hidden" bodyClassName="p-4">
           <div className="flex flex-col gap-4 h-full">
             <header>
               <h2 className="font-sans text-lg text-ink leading-tight">
                 {municipality.prefecture} {municipality.name}
               </h2>
-              <p className="text-xs text-ink-mute mt-0.5">地域防災計画を解析しています</p>
+              <p className="text-xs text-ink-mute mt-0.5">
+                公的な情報源から災害情報を収集しています
+              </p>
             </header>
 
             <HairlineDivider variant="dashed" />
@@ -90,7 +92,7 @@ export function ResearchScreen() {
 
             {(status === 'done' || status === 'cache_hit') && (
               <div className="border-hairline border-accent bg-accent-soft p-3 rounded-cockpit text-sm text-ink">
-                解析完了。災害一覧に進みます。
+                完了しました。災害一覧へ移動します。
               </div>
             )}
           </div>

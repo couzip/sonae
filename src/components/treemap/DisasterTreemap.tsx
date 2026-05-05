@@ -39,7 +39,7 @@ function scoreScenarios(scenarios: Scenario[]): number {
 
 interface DisasterTreemapProps {
   assessment: DisasterAssessment;
-  onSelect: (jpType: string, enumType: string) => void;
+  onSelect?: (jpType: string, enumType: string) => void;
   selectedJpType?: string | null;
 }
 
@@ -105,6 +105,7 @@ export function DisasterTreemap({ assessment, onSelect, selectedJpType }: Disast
             const scenarios = it.scenarios.map((s) => ({
               name: isMeaningful(s.name) ? s.name : undefined,
               scale: isMeaningful(s.scale) ? s.scale : undefined,
+              expected_damage: isMeaningful(s.expected_damage) ? s.expected_damage : undefined,
             }));
             return (
               <TreemapNode
@@ -117,7 +118,7 @@ export function DisasterTreemap({ assessment, onSelect, selectedJpType }: Disast
                 scenarios={scenarios}
                 tone={disasterTone(it.jpType)}
                 isSelected={selectedJpType === it.jpType}
-                onClick={() => onSelect(it.jpType, it.enumType)}
+                onClick={onSelect ? () => onSelect(it.jpType, it.enumType) : undefined}
                 delay={i * 0.04}
               />
             );

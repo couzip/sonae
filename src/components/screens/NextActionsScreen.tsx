@@ -172,10 +172,10 @@ export function NextActionsScreen() {
 
         <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
           <button
-            onClick={() => setPhase('detail')}
+            onClick={() => setPhase('grid')}
             className="border-hairline border-hairline px-4 py-2 rounded-cockpit hover:border-accent transition-colors text-sm text-ink-mute"
           >
-            詳細に戻る
+            災害一覧に戻る
           </button>
           <div className="flex items-center gap-3">
             <SaveReportPdfButton />

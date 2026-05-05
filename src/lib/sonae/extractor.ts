@@ -11,6 +11,7 @@
 
 import type { Extractor, LlmClient, PipelineContext } from '@/lib/core';
 import {
+  DISASTER_TYPE_ENUM,
   STEP_A_JSON_SCHEMA,
   STEP_B_JSON_SCHEMA,
   type DisasterAssessment,
@@ -78,7 +79,17 @@ ${md}
       responseFormat: STEP_A_JSON_SCHEMA,
       maxTokens: 1024,
     });
-    const types = [...new Set(stepA.types ?? [])];
+    const allowedTypes = new Set<string>(DISASTER_TYPE_ENUM);
+    const rawTypes = [...new Set(stepA.types ?? [])];
+    const dropped = rawTypes.filter((t) => !allowedTypes.has(t));
+    const types = rawTypes.filter((t) => allowedTypes.has(t));
+    if (dropped.length) {
+      ctx.emit({
+        type: 'log',
+        phase: 'extract',
+        message: `[A] enum 違反で除外: ${dropped.join(', ')}`,
+      });
+    }
     ctx.emit({
       type: 'log',
       phase: 'extract',

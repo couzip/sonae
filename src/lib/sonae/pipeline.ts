@@ -327,6 +327,7 @@ interface InflightJob {
   promise: Promise<DisasterAssessment>;
   log: PipelineProgressEvent[];
   subscribers: Set<EmitFn>;
+  controller: AbortController;
 }
 
 const _inflight = new Map<string, InflightJob>();
@@ -348,21 +349,39 @@ async function runWith(
 
   const dedupeKey = `${pipeline.config.name}:${opts.force ? 'force' : 'normal'}:${code}`;
 
+  // 各 subscriber は自分の req.signal が abort された時に「離脱」する。
+  // 全員が離脱したら job 内 controller を abort し、pipeline を止める。
+  // 個別離脱では止まらない (B 側だけ生きていれば pipeline 継続)。
+  const attachLeave = (job: InflightJob) => {
+    const onLeave = () => {
+      job.subscribers.delete(opts.emit);
+      if (job.subscribers.size === 0) job.controller.abort();
+    };
+    opts.signal?.addEventListener('abort', onLeave);
+    return () => {
+      opts.signal?.removeEventListener('abort', onLeave);
+      onLeave();
+    };
+  };
+
   const existing = _inflight.get(dedupeKey);
   if (existing) {
     for (const ev of existing.log) opts.emit(ev);
     existing.subscribers.add(opts.emit);
+    const detach = attachLeave(existing);
     try {
       return await existing.promise;
     } finally {
-      existing.subscribers.delete(opts.emit);
+      detach();
     }
   }
 
+  const controller = new AbortController();
   const job: InflightJob = {
     promise: undefined as unknown as Promise<DisasterAssessment>,
     log: [],
     subscribers: new Set([opts.emit]),
+    controller,
   };
 
   const broadcast: EmitFn = (event) => {
@@ -378,16 +397,18 @@ async function runWith(
 
   const runOpts: RunOptions = {
     emit: broadcast,
-    signal: opts.signal,
+    signal: controller.signal,
     force: opts.force,
     forceParseAndExtract: opts.forceParseAndExtract ?? opts.forceExtract,
   };
 
   job.promise = pipeline.run(query, runOpts);
   _inflight.set(dedupeKey, job);
+  const detach = attachLeave(job);
   try {
     return await job.promise;
   } finally {
+    detach();
     _inflight.delete(dedupeKey);
   }
 }

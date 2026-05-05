@@ -1,16 +1,16 @@
 'use client';
 
+import { Loader2 } from 'lucide-react';
 import { useResearchStore } from '@/stores/useResearchStore';
 import type { SonaePhase as Phase } from '@/lib/sonae';
-import { MonoLabel, StatusDot } from '@/components/cockpit';
 import { cn } from '@/lib/utils';
 
 const PHASE_LABELS: { phase: Phase; label: string }[] = [
-  { phase: 'discovery', label: 'PDF探索' },
-  { phase: 'retrieval', label: 'PDF取得' },
-  { phase: 'toc', label: '目次解析' },
-  { phase: 'ocr_section', label: 'OCR処理' },
-  { phase: 'extract', label: 'AI解析' },
+  { phase: 'discovery', label: '情報源を探す' },
+  { phase: 'retrieval', label: '情報を取得' },
+  { phase: 'toc', label: '内容を確認' },
+  { phase: 'ocr_section', label: '本文を読み取り' },
+  { phase: 'extract', label: '情報を整理' },
 ];
 
 export function PhaseStepIndicator() {
@@ -19,53 +19,47 @@ export function PhaseStepIndicator() {
   const status = useResearchStore((s) => s.status);
 
   return (
-    <div className="flex items-center gap-1 w-full">
-      {PHASE_LABELS.map((p, i) => {
+    <ol className="flex items-center gap-2 w-full flex-wrap">
+      {PHASE_LABELS.map((p) => {
         const ph = phases[p.phase];
         const isActive = currentPhase === p.phase;
         const isDone = ph.status === 'done';
         const isError = status === 'error' && isActive;
-        const dotStatus = isError
-          ? 'error'
-          : isDone
-            ? 'done'
-            : isActive && status === 'running'
-              ? 'running'
-              : 'idle';
+        const running = status === 'running';
 
         return (
-          <div key={p.phase} className="flex flex-1 items-center gap-2">
-            <div
+          <li
+            key={p.phase}
+            className={cn(
+              'flex items-center gap-2 border-hairline border-hairline px-3 py-2 rounded-cockpit transition-colors min-w-0',
+              isActive && running && 'border-accent bg-accent-soft/50',
+              isDone && !isActive && 'border-accent/40',
+              isError && 'border-scale-lg/70 bg-scale-lg/10',
+            )}
+          >
+            <span
               className={cn(
-                'flex flex-1 flex-col items-start gap-1 border-hairline border-hairline px-2 py-1.5 rounded-cockpit transition-colors relative overflow-hidden',
-                isActive && status === 'running' && 'border-accent bg-accent-soft',
-                isDone && 'border-accent/40',
+                'h-2 w-2 rounded-full shrink-0',
+                isError && 'bg-scale-lg',
+                !isError && isDone && 'bg-accent',
+                !isError && isActive && running && 'bg-accent animate-pulse',
+                !isError && !isDone && !isActive && 'bg-ink-dim',
+              )}
+            />
+            {isActive && running && (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-accent shrink-0" aria-hidden />
+            )}
+            <span
+              className={cn(
+                'text-xs font-sans truncate',
+                isDone || isActive ? 'text-ink' : 'text-ink-dim',
               )}
             >
-              {/* CRT scan sweep on active */}
-              {isActive && status === 'running' && (
-                <span className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-transparent via-accent/30 to-transparent animate-sweep" />
-              )}
-              <div className="flex items-center gap-1.5 relative">
-                <StatusDot status={dotStatus} />
-                <MonoLabel size="2xs" tone="dim">
-                  {String(i + 1).padStart(2, '0')}
-                </MonoLabel>
-              </div>
-              <MonoLabel
-                size="2xs"
-                tone={isDone || isActive ? 'default' : 'dim'}
-                className="relative"
-              >
-                {p.label}
-              </MonoLabel>
-            </div>
-            {i < PHASE_LABELS.length - 1 && (
-              <span className="text-ink-dim text-xs select-none">›</span>
-            )}
-          </div>
+              {p.label}
+            </span>
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }
