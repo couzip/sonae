@@ -8,8 +8,8 @@ const config: NextConfig = {
   serverExternalPackages: [
     'pdfjs-dist',
     '@napi-rs/canvas',
-    'browser-use',
     'playwright',
+    'rebrowser-playwright',
   ],
   experimental: {
     serverActions: { bodySizeLimit: '8mb' },

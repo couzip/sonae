@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { findByCode, findByName, findNearestByCoords } from '@/lib/sonae';
+import { parentCityCodeOfWard } from '@/lib/sonae/seirei';
 import { forwardGeocode, heartRailsReverse, reverseGeocode } from '@/lib/geocode';
 
 export const runtime = 'nodejs';
@@ -48,12 +49,14 @@ export async function POST(req: Request) {
 
     // (a) curated registry hit (alias / disaster_plan_url pin がある場合)
     let muni = muniCd ? findByCode(muniCd) : null;
-    // 政令指定都市の区 (例: 熊本市南区 43103) は registry には親市 (43100) しか
-    // 入っていない。区単位での地域防災計画は東京 23 区のみで発行されており、
-    // 他の政令市では市単位で発行されるため、未登録の区コードは親市にフォールバック。
-    if (!muni && muniCd && muniCd.length === 5 && !muniCd.endsWith('00')) {
-      const parentCode = `${muniCd.slice(0, 2)}100`;
-      muni = findByCode(parentCode);
+    // 政令指定都市の区コード (例: 熊本市南区 43104) を data/seirei_wards.json で
+    // 親市コード (43100) に正規化する。地域防災計画は政令市単位で発行され、
+    // 区単位は東京 23 区のみが該当するため、東京以外の区は親市にフォールバックする。
+    // (旧実装は muniCd の "00" 終端だけで判定していたため、八代市 43202 のような
+    // 独立市まで誤って熊本市にフォールバックしていた)
+    if (!muni && muniCd) {
+      const parentCode = parentCityCodeOfWard(muniCd);
+      if (parentCode) muni = findByCode(parentCode);
     }
     if (!muni && address) muni = findByName(address);
     if (muni) {

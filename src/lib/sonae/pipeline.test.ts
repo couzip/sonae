@@ -5,7 +5,7 @@
  * configured `runSonaePipeline` correctly orchestrates the layers, threads
  * `query` and `source` through the context, and writes / reads its caches.
  *
- * The real Sonae layers depend on browser-use + pdfjs + LM Studio, which is
+ * The real Sonae layers depend on Playwright + pdfjs + LM Studio, which is
  * out of scope for unit tests. Instead we exercise the wiring by replacing
  * the layer instances inside `getSonaePipeline()` via injected stubs.
  */

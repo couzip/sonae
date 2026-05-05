@@ -1,47 +1,50 @@
 /**
  * Sonae Discoverer.
  *
- * Resolves a municipality query into the URL of its disaster-plan PDF.
+ * 自治体の地域防災計画 PDF を見つける。
  *
- * Strategy (high → low priority):
- *   1. `data/municipalities.yaml` registry has `disaster_plan_url`     (zero-cost, deterministic)
- *   2. browser-use Agent searches Google for the official site         (fallback, slower)
- *   3. Heuristic ranking via `pickTarget` to choose the right PDF
+ * 戦略 (優先度順):
+ *   1. `data/municipalities.yaml` の `disaster_plan_url` (登録済 → 即返答)
+ *   2. Playwright で Chromium を直接操作 → 上位検索結果ページから PDF リンク列挙 → LLM で 1 件選択
  *
- * The Google fallback violates Google ToS in production; documented in README.
- * Brave Search API is the planned replacement.
+ * (2) は Google スクレイピングを行うため、本番では Brave Search API 等への切替を推奨 (README に記載)。
  */
 
-import { Agent, Controller, type AgentHistory } from 'browser-use';
-import { ChatOpenAI } from 'browser-use/llm/openai';
-import { BrowserSession, BrowserProfile } from 'browser-use/browser';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync } from 'node:fs';
+import type { BrowserContext, Page } from 'rebrowser-playwright';
+// rebrowser-playwright: Playwright の binary patch 版。CDP の Runtime.Enable
+// リーク等の bot 判定の根本原因を fork レベルで修正している。
+// 通常の playwright-extra/stealth は JS パッチだけで CDP リークを塞げない。
+import { chromium } from 'rebrowser-playwright';
 
-import type { Discoverer, PipelineContext } from '@/lib/core';
+// 永続 user_data_dir。Cookie / localStorage / fingerprint が累積する。
+function persistentProfileDir(): string {
+  const dir = join(homedir(), '.config', 'sonae-discovery', 'chromium-profile');
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+import type { Discoverer, LlmClient, PipelineContext } from '@/lib/core';
+import { createLlmClient } from '@/lib/core';
 import { findByCode } from './municipality';
-import { PDF_LIST_JSON_SCHEMA, type PdfList } from './schemas';
 import type { SonaeQuery, SonaeSource } from './types';
 
 type DiscoverCtx = PipelineContext<SonaeQuery>;
 
 interface DiscovererOptions {
-  /** OpenAI-compatible base URL for browser-use's internal LLM (planning agent). */
   llmBaseURL: string;
   llmApiKey: string;
   llmModel: string;
-  /**
-   * Run Chromium in headless mode. Default `false` to match the demo
-   * implementation — Google detects headless Chrome more aggressively and
-   * serves reCAPTCHA, which breaks the search flow.
-   */
+  /** Chromium headless モード。Google bot 検出回避のため visible 推奨。 */
   headless?: boolean;
 }
 
-const pdfListParser = {
-  parse: (s: string) => JSON.parse(s),
-  model_validate_json: (s: string) => JSON.parse(s),
-  model_json_schema: () => PDF_LIST_JSON_SCHEMA.json_schema.schema,
-  schema: PDF_LIST_JSON_SCHEMA.json_schema.schema,
-};
+export interface PdfCandidate {
+  url: string;
+  label: string;
+}
 
 export function cleanRelativeUrl(s: string | undefined): string {
   if (!s) return '';
@@ -51,69 +54,42 @@ export function cleanRelativeUrl(s: string | undefined): string {
   return v;
 }
 
-interface PdfCandidate {
-  url: string;
-  label: string;
-}
-
-/** Score-and-pick the most likely "main plan PDF" out of a list. */
-export function pickTarget(pdfs: PdfCandidate[], pageUrl: string): PdfCandidate {
-  const norm = pdfs
-    .map((p) => {
-      try {
-        return {
-          url: new URL(cleanRelativeUrl(p.url), pageUrl || 'https://example.com/').href,
-          label: p.label || p.url,
-        };
-      } catch {
-        return null;
-      }
-    })
-    .filter((p): p is PdfCandidate => !!p && p.url.toLowerCase().endsWith('.pdf'));
-
-  if (!norm.length) throw new Error('No PDF candidates');
-
-  const score = (p: PdfCandidate): number => {
-    let s = 0;
-    const lab = p.label;
-    // Reject diff/revision PDFs outright — these are not the plan body.
-    if (
-      lab.includes('修正の概要') ||
-      lab.includes('修正部分') ||
-      lab.includes('新旧対照') ||
-      lab.includes('変更点') ||
-      lab.includes('差分') ||
-      lab.includes('改定の概要')
-    ) {
-      return -1000;
-    }
-    if (lab.includes('概要')) s += 100;
-    if (lab.includes('本編')) s += 120;
-    if (lab.includes('対策編')) s += 100;
-    if (lab.includes('計画編')) s += 100;
-    if (lab.includes('一括')) s += 30;
-    if (lab.includes('ダイジェスト')) s += 40;
-    if (lab.includes('総則') || lab.includes('予防')) s += 110;
-    // 災害別に分冊されている場合、被害想定が最も網羅的に書かれるのは地震章。
-    if (lab.includes('地震') && (lab.includes('対策編') || lab.includes('編'))) s += 35;
-    // 発災後の対応マニュアルには被害想定の章は通常含まれない。
-    if (lab.includes('応急') || lab.includes('復旧') || lab.includes('復興')) s -= 80;
-    if (lab.includes('資料')) s -= 50;
-    if (lab.includes('水防')) s -= 30;
-    if (lab.includes('校区') || lab.includes('地区') || lab.includes('校')) s -= 60;
-    if (lab.includes('様式')) s -= 100;
-    if (lab.includes('避難')) s -= 50;
-    if (/^https?:\/\/[^/]*\.go\.jp/i.test(p.url)) s -= 100;
-    return s;
-  };
-  return norm.reduce((a, b) => (score(a) >= score(b) ? a : b));
-}
+const PICK_JSON_SCHEMA = {
+  type: 'json_schema',
+  json_schema: {
+    name: 'PdfPick',
+    strict: true,
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        pick_index: {
+          type: 'integer',
+          description: '選んだ PDF の index (0-based)',
+        },
+        reason: {
+          type: 'string',
+          description: '選定理由 (50 字程度)',
+        },
+      },
+      required: ['pick_index', 'reason'],
+    },
+  },
+} as const;
 
 export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
-  constructor(private readonly opts: DiscovererOptions) {}
+  private readonly llm: LlmClient;
+
+  constructor(private readonly opts: DiscovererOptions) {
+    this.llm = createLlmClient({
+      baseURL: opts.llmBaseURL,
+      apiKey: opts.llmApiKey,
+      model: opts.llmModel,
+    });
+  }
 
   async discover(query: SonaeQuery, ctx: DiscoverCtx): Promise<SonaeSource> {
-    // Path 1: registry lookup — preferred
+    // Path 1: registry pin
     const muni = findByCode(query.municipality_code);
     if (muni?.disaster_plan_url) {
       ctx.emit({
@@ -129,11 +105,15 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
       };
     }
 
-    // Path 2: browser-use fallback
+    // Path 2: Playwright + 1 LLM 呼び出し
     return this.discoverViaBrowser(query, ctx);
   }
 
   private async discoverViaBrowser(query: SonaeQuery, ctx: DiscoverCtx): Promise<SonaeSource> {
+    const fullName = query.prefecture ? `${query.prefecture}${query.city_name}` : query.city_name;
+    const searchQuery = `${fullName} 地域防災計画 -filetype:pdf -filetype:doc -filetype:docx`;
+    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
+
     ctx.emit({
       type: 'phase',
       phase: 'discovery',
@@ -141,168 +121,211 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
       message: `${query.city_name} の地域防災計画を探しています`,
     });
 
-    const llm = new ChatOpenAI({
-      model: this.opts.llmModel,
-      baseURL: this.opts.llmBaseURL,
-      apiKey: this.opts.llmApiKey,
-      temperature: 0.1,
-      addSchemaToSystemPrompt: false,
-      dontForceStructuredOutput: false,
-      removeMinItemsFromSchema: true,
-      removeDefaultsFromSchema: true,
-      timeout: 600_000,
-    });
-    const profile = new BrowserProfile({ headless: this.opts.headless ?? false });
-    const session = new BrowserSession({ browser_profile: profile });
-
-    const fullName = query.prefecture ? `${query.prefecture}${query.city_name}` : query.city_name;
-    const searchQuery = `${fullName} 地域防災計画 -filetype:pdf -filetype:doc -filetype:docx`;
-    const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
-    const TASK = `あなたはブラウザ調査エージェントです。
-目的: ${fullName} の地域防災計画 本編 (本体) の PDF を公式サイトから特定する。
-
-## 本編の定義
-- ラベルやファイル名に「本編」「計画編」「対策編」「総則」「予防計画」「ダイジェスト」「概要」を含む PDF
-- 数百ページ規模の本体ファイル
-- 公式自治体ドメインで配信されているもの (city.*.lg.jp / pref.*.lg.jp / *.go.jp 等)
-
-## 除外 (本編ではない)
-- 「修正の概要」「修正部分」「新旧対照」「変更点」「差分」「改定の概要」 → 改訂差分
-- 「資料」「様式」「校区」「地区」「水防」「避難計画」 → 付属資料・付録
-
-## 分冊されている場合の選び方
-自治体によっては地域防災計画が複数 PDF に分かれている (巻ごと / 災害種別ごと等)。被害想定が含まれる可能性が高い順に積む:
-
-1. **計画の前段** (総則 / 災害予防 / 地震対策編 等) — 被害想定はここに書かれることが多い
-2. その他の対策編 (風水害 / 津波 / 土砂 等)
-
-**被害想定が無い分冊** (積まない):
-- 災害応急対策・応急対応・災害復旧・復興 → 発災後の対応で、被害想定の章は通常含まれない
-- 資料編 / 様式集 → 既出の除外ルール
-
-空の pdfs[] を返すのは、上記いずれも見つからない場合のみ。
-
-## 手順
-- まず ${searchUrl} に go_to_url で直接遷移する
-- Google 検索結果ページ (および必要なら 1〜2 ページ目) を見て、本編の定義に合致する PDF または HTML 記事ページを探す
-- 直接 PDF リンクが本編に該当する → そのリンク URL とラベルを pdfs[] に積む
-- HTML 記事ページが PDF 一覧を持っていそう → 1 ページだけクリックして中の PDF リンクを取得し pdfs[] に積む
-- 候補が複数あれば「本編らしさ順」で並べて pdfs[] に入れる
-- どちらの方法でも見つからなければ 別ドメイン (lg.jp, go.jp 等) も試す。それでも無ければ done で空の pdfs[] を返す
-- pdfs[] の URL は **絶対 URL** で返す`;
-
-    // search_google / search を除外して、エージェントが Google 検索 box に勝手に
-    // type して再検索ループに入るのを防ぐ。navigate / go_to_url は initial_actions
-    // で最初の URL ジャンプに必要なので残す (URL 短縮は _url_shortening_limit で
-    // 別途無効化済なので、エージェントが navigate で URL を構築しても truncate されない)。
-    const controller = new Controller({
-      exclude_actions: ['search_google', 'search'],
-    });
-    const initialActions: Array<Record<string, Record<string, unknown>>> = [
-      { navigate: { url: searchUrl, new_tab: false } },
-    ];
-
-    const agent = new Agent({
-      task: TASK,
-      llm,
-      browser_session: session,
-      output_model_schema: pdfListParser,
-      controller,
-      initial_actions: initialActions,
-      // 内部の URL 短縮 (デフォルト 25 文字超を `...md5` で置換) を無効化。
-      // Japanese を含む長い percent-encoded クエリが壊れるのを防ぐ。
-      _url_shortening_limit: 100_000,
-      use_vision: false,
-      use_thinking: false,
-      flash_mode: true,
-      use_judge: false,
-      enable_planning: false,
-      max_failures: 3,
-      register_new_step_callback: (state: any, output: any, step: number) => {
-        // browser-use が返す state.title は Chromium → 内部 IPC を経由する過程で
-        // 文字コードが破損して mojibake になることがある (UTF-8 を Shift_JIS と誤解釈)。
-        // URL はパーセントエンコード済の ASCII セーフな文字列で、再デコードしても
-        // 結果が安定する。なので表示は URL のみに統一し、title は使わない。
-        const url: string = (state?.url as string) ?? '';
-        const goal: string = (output?.next_goal as string) ?? '';
-        const actions: string[] = Array.isArray(output?.action)
-          ? output.action
-              .map((a: any) => (a && typeof a === 'object' ? Object.keys(a)[0] : ''))
-              .filter(Boolean)
-          : [];
-
-        // Google 検索ページは q パラメータをデコードして表示する方が読みやすい。
-        // それ以外は URL をそのまま (絶対 URL の人間可読形式)。
-        let where = url;
-        try {
-          if (url) {
-            const u = new URL(url);
-            if (u.hostname.includes('google.') && u.pathname === '/search') {
-              const q = u.searchParams.get('q');
-              if (q) where = `Google検索: ${q}`;
-            }
-          }
-        } catch {
-          /* fall back to raw url */
-        }
-
-        const segs: string[] = [];
-        segs.push(`step ${step}`);
-        if (actions.length) segs.push(actions.join('+'));
-        if (where) segs.push(where.length > 200 ? where.slice(0, 200) + '…' : where);
-        if (goal) segs.push(`→ ${goal.length > 200 ? goal.slice(0, 200) + '…' : goal}`);
-        ctx.emit({
-          type: 'log',
-          phase: 'discovery',
-          message: segs.join(' | '),
-        });
+    // rebrowser-playwright + system Chrome の組み合わせ。Google bot 判定を回避する 2025 年時点の
+    // 最も実績のある構成。userAgent / Sec-CH-UA は手動指定せず、実 Chrome 由来の値を使う
+    // (UA とクライアントヒントの不整合自体が bot シグナルになるため)。
+    const context: BrowserContext = await chromium.launchPersistentContext(
+      persistentProfileDir(),
+      {
+        channel: 'chrome',
+        headless: this.opts.headless ?? false,
+        viewport: null,
+        locale: 'ja-JP',
+        args: ['--disable-blink-features=AutomationControlled'],
+        ignoreDefaultArgs: ['--enable-automation'],
       },
+    );
+    // navigator.webdriver を消すなど追加のシグナル隠蔽。CDP リーク自体は
+    // rebrowser-playwright の binary patch で解消済み。
+    await context.addInitScript(() => {
+      const proto = Object.getPrototypeOf(navigator) as Record<string, unknown>;
+      delete proto.webdriver;
     });
-
-    let listing: PdfList;
     try {
-      const history = (await agent.run(15)) as AgentHistory;
-      listing = await this.parseAgentResult(history, ctx);
-    } finally {
-      try {
-        await session.kill?.();
-      } catch {
-        /* ignore */
+      const page = await context.newPage();
+
+      // (1) Google 検索結果ページを開く
+      ctx.emit({ type: 'log', phase: 'discovery', message: 'Google 検索を実行' });
+      await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+      await this.assertNotCaptcha(page);
+
+      // (2) 上位 organic results URL を抽出
+      const topResults = await this.extractTopResults(page);
+      if (!topResults.length) {
+        throw new Error('Google 検索結果から有効なリンクを抽出できませんでした');
       }
-    }
-
-    if (!listing.pdfs.length) {
-      throw new Error('Phase 1: PDF が見つからない');
-    }
-
-    const reachable = await this.filterReachable(listing.pdfs, ctx);
-    if (!reachable.length) {
-      throw new Error(
-        `Phase 1: 発見した ${listing.pdfs.length} 件すべて到達不能 (HEAD 失敗)。URL 抽出が失敗している可能性`,
-      );
-    }
-    if (reachable.length < listing.pdfs.length) {
       ctx.emit({
         type: 'log',
         phase: 'discovery',
-        message: `到達可能 ${reachable.length}/${listing.pdfs.length} 件 (残りは HEAD 失敗で除外)`,
+        message: `候補ページ ${topResults.length} 件: ${topResults
+          .slice(0, 3)
+          .map((u) => safeHostname(u))
+          .join(', ')}`,
+      });
+
+      // (3) 上位ページを順に開いて PDF リンクを探す
+      let pageUrl = '';
+      let pdfs: PdfCandidate[] = [];
+      for (const url of topResults.slice(0, 3)) {
+        ctx.emit({
+          type: 'log',
+          phase: 'discovery',
+          message: `ページを開く: ${safeHostname(url)}${new URL(url).pathname}`,
+        });
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+          const found = await this.extractPdfLinks(page);
+          if (found.length > 0) {
+            pageUrl = url;
+            pdfs = found;
+            ctx.emit({
+              type: 'log',
+              phase: 'discovery',
+              message: `${found.length} 件の PDF リンクを発見`,
+            });
+            break;
+          }
+          ctx.emit({
+            type: 'log',
+            phase: 'discovery',
+            message: `(PDF リンク無し → 次の候補へ)`,
+          });
+        } catch (e: any) {
+          ctx.emit({
+            type: 'log',
+            phase: 'discovery',
+            message: `(読み込み失敗: ${String(e?.message ?? e).slice(0, 80)})`,
+          });
+        }
+      }
+
+      if (!pdfs.length) {
+        throw new Error('上位 3 ページに PDF リンクが見つかりませんでした');
+      }
+
+      // (4) HEAD で到達確認
+      const reachable = await this.filterReachable(pdfs, ctx);
+      if (!reachable.length) {
+        throw new Error(
+          `発見した ${pdfs.length} 件すべて到達不能 (HEAD 失敗)。URL 抽出が失敗している可能性`,
+        );
+      }
+      if (reachable.length < pdfs.length) {
+        ctx.emit({
+          type: 'log',
+          phase: 'discovery',
+          message: `到達可能 ${reachable.length}/${pdfs.length} 件 (残りは HEAD 失敗で除外)`,
+        });
+      }
+
+      // (5) LLM で本編 1 件を選択 (1 件しか無ければ skip)
+      const target =
+        reachable.length === 1 ? reachable[0]! : await this.pickViaLlm(reachable, query, ctx);
+
+      ctx.emit({
+        type: 'phase',
+        phase: 'discovery',
+        status: 'done',
+        message: `${reachable.length} 件発見 → ${target.label.slice(0, 60)}`,
+        data: reachable.slice(0, 5),
+      });
+
+      return {
+        pdf_url: target.url,
+        page_url: pageUrl || undefined,
+        pdf_label: target.label,
+        section_hint: '被害想定',
+      };
+    } finally {
+      await context.close().catch(() => {
+        /* ignore */
       });
     }
+  }
 
-    const target = pickTarget(reachable, listing.page_url);
-    ctx.emit({
-      type: 'phase',
-      phase: 'discovery',
-      status: 'done',
-      message: `${reachable.length} 件発見 → ${target.label.slice(0, 60)}`,
-      data: reachable.slice(0, 5),
+  private async assertNotCaptcha(page: Page): Promise<void> {
+    const url = page.url();
+    if (
+      url.includes('sorry.google.com') ||
+      url.includes('consent.google.com') ||
+      url.includes('captcha')
+    ) {
+      throw new Error(`Google が bot 検出 (${safeHostname(url)})。手動で reCAPTCHA を解決してください`);
+    }
+  }
+
+  /**
+   * Google 検索結果ページから organic results の URL を上位順で取得する。
+   * <h3> の祖先 <a href="..."> を辿る方式。Google の DOM 変更に対する耐性のため
+   * 複数 selector を試す。
+   */
+  private async extractTopResults(page: Page): Promise<string[]> {
+    return await page.evaluate(() => {
+      const seen = new Set<string>();
+      const out: string[] = [];
+      const addUrl = (raw: string) => {
+        if (!raw) return;
+        if (seen.has(raw)) return;
+        try {
+          const u = new URL(raw, 'https://www.google.com/');
+          // Google ドメインは検索/設定リンクなので除外
+          if (
+            u.hostname.endsWith('.google.com') ||
+            u.hostname === 'google.com' ||
+            u.hostname.endsWith('.googleusercontent.com')
+          ) {
+            return;
+          }
+          if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
+          seen.add(raw);
+          out.push(u.href);
+        } catch {
+          /* skip invalid */
+        }
+      };
+
+      // (a) <h3> の祖先 <a> を辿る (organic result 標準)
+      const h3s = document.querySelectorAll('h3');
+      h3s.forEach((h3) => {
+        const a = h3.closest('a[href]') as HTMLAnchorElement | null;
+        if (a) addUrl(a.href);
+      });
+      // (b) Google の result 用コンテナ class を試す
+      const fallback = document.querySelectorAll('.yuRUbf > a[href], .tF2Cxc a[href]');
+      fallback.forEach((el) => {
+        const a = el as HTMLAnchorElement;
+        addUrl(a.href);
+      });
+      return out;
     });
-    return {
-      pdf_url: target.url,
-      page_url: listing.page_url || undefined,
-      pdf_label: target.label,
-      section_hint: '被害想定',
-    };
+  }
+
+  /** 現在のページから <a href="*.pdf"> リンクを抽出。 */
+  private async extractPdfLinks(page: Page): Promise<PdfCandidate[]> {
+    return await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('a[href]')) as HTMLAnchorElement[];
+      const seen = new Set<string>();
+      const out: { url: string; label: string }[] = [];
+      for (const a of links) {
+        const href = a.href;
+        if (!href) continue;
+        // 拡張子 (クエリ文字列より前) で .pdf 判定
+        try {
+          const u = new URL(href);
+          const path = u.pathname.toLowerCase();
+          if (!path.endsWith('.pdf')) continue;
+          if (seen.has(u.href)) continue;
+          seen.add(u.href);
+          const text = (a.textContent || '').replace(/\s+/g, ' ').trim();
+          const title = a.getAttribute('title') ?? '';
+          const label = text || title || decodeURIComponent(u.pathname.split('/').pop() || u.href);
+          out.push({ url: u.href, label });
+        } catch {
+          /* skip invalid url */
+        }
+      }
+      return out;
+    });
   }
 
   private async filterReachable(
@@ -318,7 +341,8 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
             signal: ctx.signal,
             headers: {
               'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+                '(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
             },
           });
           return r.ok ? p : null;
@@ -330,186 +354,68 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
     return results.filter((p): p is PdfCandidate => p !== null);
   }
 
-  private async parseAgentResult(history: AgentHistory, ctx: DiscoverCtx): Promise<PdfList> {
-    // 1. structured_output 即採用
-    try {
-      const so = (history as any).structured_output as PdfList | undefined;
-      if (so?.pdfs?.length) return so;
-    } catch {
-      /* fall through */
-    }
+  private async pickViaLlm(
+    pdfs: PdfCandidate[],
+    query: SonaeQuery,
+    ctx: DiscoverCtx,
+  ): Promise<PdfCandidate> {
+    const fullName = query.prefecture ? `${query.prefecture}${query.city_name}` : query.city_name;
+    const list = pdfs
+      .map((p, i) => `${i}. label: ${p.label}\n   url: ${p.url}`)
+      .join('\n\n');
 
-    // 2. final_result が JSON っぽければパース
-    const final = String(history.final_result?.() ?? '');
-    const m = final.match(/\{[\s\S]*\}/);
-    if (m) {
-      try {
-        const parsed = JSON.parse(m[0]);
-        if (Array.isArray(parsed.pdfs) && parsed.pdfs.length) return parsed as PdfList;
-      } catch {
-        /* fall through */
-      }
-    }
+    const prompt = `${fullName} の地域防災計画について、以下の PDF 一覧から「被害想定が記載されている本編」を 1 つ選んでください。
 
-    // 3. blob fallback parsing (extracted_content / model_actions / agent_steps)
-    const blobs: string[] = [];
+## 本編の定義
+- ラベルやファイル名に「本編」「計画編」「対策編」「総則」「予防計画」「ダイジェスト」「概要」を含む
+- 数百ページ規模の本体ファイル
+- 全災害種別を網羅、または被害想定を含む
+
+## 除外 (本編ではない)
+- **「表紙」「目次」「表紙・目次」「目次のみ」** → 表紙や目次しか入っていない分冊。被害想定の数値や本文は無いので絶対に選ばない
+- 「修正の概要」「新旧対照」「変更点」「差分」「改定の概要」 → 改訂差分
+- 「資料編」「様式集」「校区」「地区」「水防」「避難計画」 → 付属資料・付録
+- 災害応急対策 / 応急対応 / 災害復旧 / 復興 → 発災後の対応マニュアルで被害想定は含まれない
+
+## 巻 / 災害種別ごとに分冊されている場合
+- 計画の前段 (総則 / 災害予防 / 地震対策編 等) を優先 → 被害想定はここに書かれることが多い
+- それ以外の対策編 (風水害 / 津波 / 土砂 等) は次点
+
+## 候補
+${list}
+
+## 出力
+pick_index に 0..${pdfs.length - 1} の整数で 1 件選び、reason に簡潔な選定理由を書いてください。`;
+
     try {
-      const ec = history.extracted_content?.() ?? [];
-      for (const c of ec) if (c) blobs.push(String(c));
+      const t0 = Date.now();
+      const result = await this.llm.chatJson<{ pick_index: number; reason: string }>({
+        prompt,
+        responseFormat: PICK_JSON_SCHEMA,
+      });
+      const dt = ((Date.now() - t0) / 1000).toFixed(1);
+      const idx = Math.max(0, Math.min(pdfs.length - 1, Number(result.pick_index) || 0));
+      ctx.emit({
+        type: 'log',
+        phase: 'discovery',
+        message: `LLM pick (${dt}s): "${pdfs[idx]!.label.slice(0, 50)}" - ${result.reason.slice(0, 80)}`,
+      });
+      return pdfs[idx]!;
     } catch (e: any) {
       ctx.emit({
         type: 'log',
         phase: 'discovery',
-        message: `(extracted_content failed: ${e?.message})`,
+        message: `LLM pick 失敗 (${String(e?.message ?? e).slice(0, 80)}) → 1 件目を採用`,
       });
+      return pdfs[0]!;
     }
-    try {
-      const ar = history.action_results?.() ?? [];
-      for (const r of ar) {
-        if (r?.extracted_content) blobs.push(String(r.extracted_content));
-        if (r?.long_term_memory) blobs.push(String(r.long_term_memory));
-      }
-    } catch (e: any) {
-      ctx.emit({
-        type: 'log',
-        phase: 'discovery',
-        message: `(action_results failed: ${e?.message})`,
-      });
-    }
-    let modelActionsText = '';
-    try {
-      modelActionsText = JSON.stringify(history.model_actions?.() ?? []);
-    } catch {
-      /* ignore */
-    }
-    const steps = (history.agent_steps?.() ?? []).join('\n');
-    const text = blobs.join('\n') + '\n' + modelActionsText + '\n' + steps + '\n' + final;
-    const visitedUrls = history.urls?.() ?? [];
-    const baseUrl = visitedUrls.filter((u) => u && u !== 'about:blank').at(-1) ?? '';
-    ctx.emit({
-      type: 'log',
-      phase: 'discovery',
-      message: `fallback parse: blobs=${blobs.length} text=${text.length}文字 base=${baseUrl.slice(0, 60)}`,
-    });
+  }
+}
 
-    const sr = text.match(/<structured_result>\s*([\s\S]+?)\s*<\/structured_result>/);
-    if (sr) {
-      try {
-        const j = JSON.parse(sr[1]);
-        if (Array.isArray(j.pdfs) && j.pdfs.length) {
-          const resolved: PdfCandidate[] = [];
-          for (const p of j.pdfs) {
-            try {
-              const abs = new URL(
-                cleanRelativeUrl(p.url),
-                baseUrl || j.page_url || 'https://example.com/',
-              ).href;
-              if (abs.toLowerCase().endsWith('.pdf')) {
-                resolved.push({ url: abs, label: p.label || p.url });
-              }
-            } catch {
-              /* skip invalid url */
-            }
-          }
-          if (resolved.length) return { page_url: baseUrl || j.page_url || '', pdfs: resolved };
-        }
-      } catch {
-        /* fall through */
-      }
-    }
-
-    const pdfs: PdfCandidate[] = [];
-    const seen = new Set<string>();
-
-    // エージェントが直接 PDF URL に navigate していた場合、それを最優先候補として拾う
-    // (browser-use が done を返さず終了した場合でも、訪問履歴に痕跡が残る)
-    for (const u of visitedUrls) {
-      if (!u || u === 'about:blank') continue;
-      try {
-        const abs = new URL(cleanRelativeUrl(u)).href;
-        if (abs.toLowerCase().endsWith('.pdf') && !seen.has(abs)) {
-          seen.add(abs);
-          pdfs.push({ url: abs, label: decodeURIComponent(abs.split('/').pop() ?? abs) });
-        }
-      } catch {
-        /* ignore invalid URL */
-      }
-    }
-
-    const anchorRe = /<a>[^<>]*?text="([^"]+?)"[^<>]*?href="([^"]+?\.pdf)"/gi;
-    let m2: RegExpExecArray | null;
-    while ((m2 = anchorRe.exec(text)) !== null) {
-      try {
-        const abs = new URL(cleanRelativeUrl(m2[2]), baseUrl || 'https://example.com/').href;
-        if (!seen.has(abs)) {
-          seen.add(abs);
-          pdfs.push({ url: abs, label: m2[1] });
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    // 絶対 URL / root-absolute / 相対パス (bare 含む) すべてを拾う。
-    // 解決ミスで生まれた壊れた URL は後段の `filterReachable` (HEAD 検証) で
-    // 落とすので、抽出段階では捨てない。
-    const urlRe = /(?:https?:\/\/[^\s<>"'`]+?\.pdf|[\w.\-/]+\.pdf)/gi;
-    while ((m2 = urlRe.exec(text)) !== null) {
-      const raw = m2[0].replace(/[)\].,'"]+$/, '');
-      try {
-        const abs = new URL(cleanRelativeUrl(raw), baseUrl || 'https://example.com/').href;
-        if (!seen.has(abs) && abs.toLowerCase().endsWith('.pdf')) {
-          seen.add(abs);
-          pdfs.push({ url: abs, label: decodeURIComponent(abs.split('/').pop() ?? abs) });
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
-    if (!pdfs.length && baseUrl) {
-      ctx.emit({
-        type: 'log',
-        phase: 'discovery',
-        message: `agent did not return links → fetch baseUrl HTML directly`,
-      });
-      try {
-        const r = await fetch(baseUrl, {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
-          },
-          redirect: 'follow',
-        });
-        if (r.ok) {
-          const html = await r.text();
-          const aRe = /<a\s[^>]*?href=["']([^"']+?\.pdf)["'][^>]*?>([\s\S]*?)<\/a>/gi;
-          let m3: RegExpExecArray | null;
-          while ((m3 = aRe.exec(html)) !== null) {
-            try {
-              const abs = new URL(cleanRelativeUrl(m3[1]), baseUrl).href;
-              if (!seen.has(abs)) {
-                seen.add(abs);
-                const label =
-                  m3[2]
-                    .replace(/<[^>]+>/g, '')
-                    .replace(/\s+/g, ' ')
-                    .trim() || decodeURIComponent(abs.split('/').pop() ?? abs);
-                pdfs.push({ url: abs, label });
-              }
-            } catch {
-              /* ignore */
-            }
-          }
-        }
-      } catch (e: any) {
-        ctx.emit({
-          type: 'log',
-          phase: 'discovery',
-          message: `fetch failed: ${e?.message}`,
-        });
-      }
-    }
-
-    return { page_url: baseUrl, pdfs };
+function safeHostname(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
   }
 }
