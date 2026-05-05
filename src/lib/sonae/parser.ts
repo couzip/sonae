@@ -37,6 +37,19 @@ const norm = (s: string) =>
     .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xff10 + 0x30))
     .replace(/[\s　・,。、()（）]/g, '');
 
+/**
+ * 章タイトルから先頭の「第N章/節/項/編」「N章/節/項/編」「N.」「N」等の
+ * プレフィックスを剥がしたコア部分を返す。TOC と本文で
+ * "第2 災害の想定" vs "２.災害の想定" のような表記揺れに対応するため、
+ * フル一致が失敗した時にコアで再検索する。
+ */
+function coreTitle(title: string): string {
+  let s = title;
+  s = s.replace(/^第[0-9０-９一二三四五六七八九十百]+[章節項編部]\s*/u, '');
+  s = s.replace(/^[0-9０-９一二三四五六七八九十百]+[\.．、]?\s*/u, '');
+  return s.trim();
+}
+
 /** Convert chandra-style HTML+bbox output to clean markdown. */
 function chandraHtmlToMarkdown(s: string): string {
   if (!s || !/<\/?(div|h[1-6]|p|br)\b/i.test(s)) return s;
@@ -133,6 +146,7 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
 
     // -- Phase 4: scan text-layer for keyword → OCR candidates → confirm + body OCR --
     const titleNorm = norm(section.title);
+    const coreNorm = norm(coreTitle(section.title));
     ctx.emit({
       type: 'phase',
       phase: 'ocr_scan',
@@ -141,15 +155,30 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
     });
     const allPageNums = Array.from({ length: totalPages }, (_, i) => i + 1);
     const textByPage = await extractPdfText(blob.pdf_path, allPageNums);
-    const candidates: number[] = [];
+    let candidates: number[] = [];
+    let matchedKeyword = section.title;
     for (const p of allPageNums) {
       const tn = norm(textByPage[p] || '');
       if (tn.includes(titleNorm)) candidates.push(p);
     }
+    if (candidates.length === 0 && coreNorm && coreNorm !== titleNorm) {
+      for (const p of allPageNums) {
+        const tn = norm(textByPage[p] || '');
+        if (tn.includes(coreNorm)) candidates.push(p);
+      }
+      if (candidates.length > 0) {
+        matchedKeyword = coreTitle(section.title);
+        ctx.emit({
+          type: 'log',
+          phase: 'ocr_scan',
+          message: `フル一致 0 件 → コア "${matchedKeyword}" で再検索`,
+        });
+      }
+    }
     ctx.emit({
       type: 'log',
       phase: 'ocr_scan',
-      message: `"${section.title}" ヒット ${candidates.length} ページ: ${candidates.slice(0, 20).join(', ')}${candidates.length > 20 ? '...' : ''}`,
+      message: `"${matchedKeyword}" ヒット ${candidates.length} ページ: ${candidates.slice(0, 20).join(', ')}${candidates.length > 20 ? '...' : ''}`,
     });
     if (!candidates.length) throw new Error('text-layer ヒットなし → 中断');
 
@@ -171,7 +200,7 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
       const text = await this.ocrPage(imgPath);
       const dt = ((Date.now() - t0) / 1000).toFixed(1);
       ocrCache.set(pageNum, text);
-      const heading = this.findTitleHeading(text, titleNorm);
+      const heading = this.findTitleHeading(text, [titleNorm, coreNorm]);
       ctx.emit({
         type: 'log',
         phase: 'ocr_section',
@@ -293,16 +322,32 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
     });
 
     const titleNorm = norm(section.title);
+    const coreNorm = norm(coreTitle(section.title));
     const candidates: number[] = [];
+    let matchedKeyword = section.title;
     for (const p of allPageNums) {
       const tn = norm(ocrCache.get(p) || '');
       if (tn.includes(titleNorm)) candidates.push(p);
+    }
+    if (candidates.length === 0 && coreNorm && coreNorm !== titleNorm) {
+      for (const p of allPageNums) {
+        const tn = norm(ocrCache.get(p) || '');
+        if (tn.includes(coreNorm)) candidates.push(p);
+      }
+      if (candidates.length > 0) {
+        matchedKeyword = coreTitle(section.title);
+        ctx.emit({
+          type: 'log',
+          phase: 'ocr_scan',
+          message: `フル一致 0 件 → コア "${matchedKeyword}" で再検索`,
+        });
+      }
     }
     ctx.emit({
       type: 'phase',
       phase: 'ocr_scan',
       status: 'done',
-      message: `"${section.title}" ヒット ${candidates.length} ページ (OCR 経由)`,
+      message: `"${matchedKeyword}" ヒット ${candidates.length} ページ (OCR 経由)`,
     });
     if (!candidates.length) throw new Error('OCR ヒットなし → 中断');
 
@@ -310,7 +355,7 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
     let startHeading: string | null = null;
     for (const p of candidates) {
       const text = ocrCache.get(p) || '';
-      const heading = this.findTitleHeading(text, titleNorm);
+      const heading = this.findTitleHeading(text, [titleNorm, coreNorm]);
       if (heading) {
         startPage = p;
         startHeading = heading;
@@ -360,12 +405,15 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
     return chandraHtmlToMarkdown(cleaned);
   }
 
-  private findTitleHeading(text: string, titleNorm: string): string | null {
+  private findTitleHeading(text: string, keywordsNorm: string[]): string | null {
+    const ks = keywordsNorm.filter((k) => k.length > 0);
     for (const line of text.split('\n')) {
       const m = line.match(/^#{1,4}\s+(.+?)\s*$/);
       if (!m) continue;
       const hn = norm(m[1]);
-      if (hn.includes(titleNorm) || titleNorm.includes(hn)) return m[1].trim();
+      for (const k of ks) {
+        if (hn.includes(k) || k.includes(hn)) return m[1].trim();
+      }
     }
     return null;
   }
