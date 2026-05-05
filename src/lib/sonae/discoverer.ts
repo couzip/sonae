@@ -152,7 +152,7 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
     const session = new BrowserSession({ browser_profile: profile });
 
     const fullName = query.prefecture ? `${query.prefecture}${query.city_name}` : query.city_name;
-    const searchQuery = `${fullName} 地域防災計画 -filetype:pdf -filetype:doc -filetype:docx -filetype:xls -filetype:xlsx`;
+    const searchQuery = `${fullName} 地域防災計画 -filetype:pdf -filetype:doc -filetype:docx`;
     const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}`;
     const TASK = `あなたはブラウザ調査エージェントです。
 目的: ${fullName} の地域防災計画 本編 (本体) の PDF を公式サイトから特定する。
