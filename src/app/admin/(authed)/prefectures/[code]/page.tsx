@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
-import { listRegistryEntries } from '@/lib/sonae/admin/registry';
-import { inspectCacheBriefly } from '@/lib/sonae/admin/cacheInspect';
+import { groupAdminMunicipalitiesByPrefecture } from '@/lib/sonae/admin/aggregate';
+import { PREFECTURE_BY_CODE } from '@/lib/sonae/admin/prefectures';
 import { StatusBadge } from '@/components/admin/StatusBadge';
 
 export const dynamic = 'force-dynamic';
@@ -13,9 +13,17 @@ export default async function PrefecturePage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const all = listRegistryEntries().filter((m) => (m.prefecture_code ?? '') === code);
-  if (!all.length) notFound();
-  const prefecture = all[0]!.prefecture;
+  const bucket = groupAdminMunicipalitiesByPrefecture().find(
+    (b) => b.prefecture_code === code,
+  );
+  // bucket 不在 = 都道府県に登録/cache が 1 件も無い状態。code が JIS X 0402 県コード
+  // (01-47) であれば空状態を表示する。それ以外 (= 不明な code) のみ 404 にする。
+  const prefName = PREFECTURE_BY_CODE[code];
+  if (!bucket && !prefName) notFound();
+
+  const prefectureLabel = bucket?.prefecture ?? prefName ?? '';
+  const municipalities = bucket?.municipalities ?? [];
+  const cachedCount = bucket?.cached ?? 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -29,14 +37,14 @@ export default async function PrefecturePage({
 
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-sans text-2xl text-ink leading-tight">{prefecture}</h1>
+          <h1 className="font-sans text-2xl text-ink leading-tight">{prefectureLabel}</h1>
           <p className="text-sm text-ink-mute mt-1">
-            登録自治体 <span className="text-ink tabular-nums">{all.length}</span> 件 / コード{' '}
-            <span className="text-ink font-mono">{code}</span>
+            自治体 <span className="text-ink tabular-nums">{municipalities.length}</span> 件 /
+            解析済 <span className="text-ink tabular-nums">{cachedCount}</span> 件
           </p>
         </div>
         <Link
-          href={`/admin/new?prefecture=${encodeURIComponent(prefecture)}&prefecture_code=${code}`}
+          href={`/admin/new?prefecture=${encodeURIComponent(prefectureLabel)}&prefecture_code=${code}`}
           className="inline-flex items-center gap-1.5 border-hairline border-accent bg-accent-soft hover:bg-accent-dim px-3 py-1.5 rounded-cockpit text-sm text-accent transition-colors"
         >
           <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
@@ -44,38 +52,51 @@ export default async function PrefecturePage({
         </Link>
       </header>
 
-      <div className="border-hairline border-hairline rounded-cockpit overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-bg-sunken text-xs text-ink-mute">
-            <tr>
-              <th className="text-left px-4 py-2.5 font-medium">自治体</th>
-              <th className="text-left px-4 py-2.5 font-medium font-mono">code</th>
-              <th className="text-left px-4 py-2.5 font-medium">PDF</th>
-              <th className="text-left px-4 py-2.5 font-medium">OCR</th>
-              <th className="text-left px-4 py-2.5 font-medium">解析結果</th>
-              <th className="px-4 py-2.5"></th>
-            </tr>
-          </thead>
-          <tbody className="text-sm">
-            {all.map((m) => {
-              const c = inspectCacheBriefly(m.code);
-              return (
+      {municipalities.length === 0 ? (
+        <div className="border-hairline border-hairline rounded-cockpit p-6 text-sm text-ink-mute text-center">
+          この都道府県に登録/解析済の自治体はありません。
+          <br />
+          フロントから自治体をリサーチするか、上の「新規追加」から登録してください。
+        </div>
+      ) : (
+        <div className="border-hairline border-hairline rounded-cockpit overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-bg-sunken text-xs text-ink-mute">
+              <tr>
+                <th className="text-left px-4 py-2.5 font-medium">自治体</th>
+                <th className="text-left px-4 py-2.5 font-medium">PDF</th>
+                <th className="text-left px-4 py-2.5 font-medium">OCR</th>
+                <th className="text-left px-4 py-2.5 font-medium">解析結果</th>
+                <th className="px-4 py-2.5"></th>
+              </tr>
+            </thead>
+            <tbody className="text-sm">
+              {municipalities.map((m) => (
                 <tr
                   key={m.code}
                   className="border-t-hairline border-hairline hover:bg-bg-raised/40 transition-colors"
                 >
-                  <td className="px-4 py-3 text-ink">{m.name}</td>
-                  <td className="px-4 py-3 text-ink-mute tabular-nums font-mono text-xs">
-                    {m.code}
+                  <td className="px-4 py-3 text-ink">
+                    <div className="flex items-center gap-2">
+                      <span>{m.name}</span>
+                      {!m.in_registry && (
+                        <span
+                          className="text-[10px] uppercase tracking-cockpit text-ink-dim border-hairline border-hairline px-1.5 py-0.5 rounded-cockpit"
+                          title="registry 未登録 (キャッシュからの自動検出)"
+                        >
+                          未登録
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge ok={c.pdf} />
+                    <StatusBadge ok={m.cache.pdf} />
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge ok={c.ocr} />
+                    <StatusBadge ok={m.cache.ocr} />
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge ok={c.result} />
+                    <StatusBadge ok={m.cache.result} />
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link
@@ -87,11 +108,11 @@ export default async function PrefecturePage({
                     </Link>
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

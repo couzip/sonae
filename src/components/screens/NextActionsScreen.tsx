@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { useFlowStore } from '@/stores/useFlowStore';
 import { useLocationStore } from '@/stores/useLocationStore';
 import { useChecklistStore } from '@/stores/useChecklistStore';
@@ -11,6 +12,14 @@ import { PriorityActionCard } from '@/components/recommendations/PriorityActionC
 import { StrategicInsightCard } from '@/components/recommendations/StrategicInsightCard';
 import { SaveReportPdfButton } from '@/components/report/SaveReportPdfButton';
 import type { Countermeasure } from '@/lib/sonae/client/countermeasures-filter';
+
+const LOADING_STAGES = [
+  'プロファイルを読み込んでいます',
+  'チェックリストの状況を確認しています',
+  'あなたの状況に合う対策を探しています',
+  '優先順位を組み立てています',
+  '計画の核心を整理しています',
+];
 
 export function NextActionsScreen() {
   const reset = useFlowStore((s) => s.reset);
@@ -27,6 +36,20 @@ export function NextActionsScreen() {
   const generate = useRecommendationsStore((s) => s.generate);
 
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  const [stageIdx, setStageIdx] = useState(0);
+  const [dots, setDots] = useState(1);
+
+  useEffect(() => {
+    if (status !== 'loading') return;
+    const stage = setInterval(() => {
+      setStageIdx((i) => (i + 1) % LOADING_STAGES.length);
+    }, 2400);
+    const dot = setInterval(() => setDots((d) => (d % 3) + 1), 500);
+    return () => {
+      clearInterval(stage);
+      clearInterval(dot);
+    };
+  }, [status]);
   useEffect(() => {
     if (!municipality) return;
     fetch(`/api/checklist?code=${encodeURIComponent(municipality.code)}`)
@@ -118,9 +141,48 @@ export function NextActionsScreen() {
         )}
 
         {status === 'loading' && (
-          <div className="border-hairline border-hairline rounded-cockpit p-4 text-sm text-ink-mute">
-            優先行動を生成しています
-          </div>
+          <section className="border-hairline border-accent/40 bg-accent-soft/15 rounded-cockpit p-6 flex flex-col items-center gap-4">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-6 w-6 animate-spin text-accent" aria-hidden />
+              <h3 className="font-sans text-lg text-ink leading-tight">
+                あなたの活動方針を組み立てています
+                <span className="text-accent/70 inline-block w-6 text-left">
+                  {'.'.repeat(dots)}
+                </span>
+              </h3>
+            </div>
+            <div className="font-mono text-xs text-ink-mute tracking-cockpit uppercase">
+              {LOADING_STAGES[stageIdx]}
+            </div>
+            <ul className="flex flex-col gap-1.5 w-full max-w-md text-xs">
+              {LOADING_STAGES.map((s, i) => (
+                <li
+                  key={s}
+                  className={[
+                    'flex items-center gap-2 transition-colors',
+                    i < stageIdx
+                      ? 'text-ink-mute'
+                      : i === stageIdx
+                        ? 'text-ink'
+                        : 'text-ink-dim',
+                  ].join(' ')}
+                >
+                  <span
+                    className={[
+                      'inline-block h-1.5 w-1.5 rounded-full shrink-0',
+                      i < stageIdx
+                        ? 'bg-accent/60'
+                        : i === stageIdx
+                          ? 'bg-accent animate-pulse'
+                          : 'bg-ink-dim/40',
+                    ].join(' ')}
+                    aria-hidden
+                  />
+                  <span className="leading-snug">{s}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
         {status === 'error' && (
           <div className="border-hairline border-scale-lg/70 rounded-cockpit p-4 bg-bg-raised/40">

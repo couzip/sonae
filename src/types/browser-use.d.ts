@@ -25,11 +25,36 @@ declare module 'browser-use' {
     enable_planning?: boolean;
     max_failures?: number;
     max_actions_per_step?: number;
+    /** カスタム Controller (action 制限など) */
+    controller?: Controller | null;
+    /** controller の別名 (browser-use の最近のリビジョン互換) */
+    tools?: Controller | null;
+    /** エージェント開始前にフレームワーク側で実行する固定アクション列 */
+    initial_actions?: Array<Record<string, Record<string, unknown>>> | null;
+    /**
+     * browser-use 内部の URL 短縮機能の閾値 (デフォルト 25 文字)。これを超える
+     * クエリ部を `...` + md5 prefix に置換するので、長い percent-encoded
+     * クエリ (Japanese 含む) が壊れる。実質無効化するには非常に大きい値を指定。
+     */
+    _url_shortening_limit?: number;
+    register_new_step_callback?: (
+      state: unknown,
+      output: unknown,
+      step: number,
+    ) => void | Promise<void>;
   }
 
   export class Agent {
     constructor(options: AgentOptions);
     run(maxSteps: number): Promise<AgentHistory>;
+  }
+
+  export class Controller {
+    constructor(options?: {
+      exclude_actions?: string[];
+      output_model?: unknown;
+      display_files_in_done_text?: boolean;
+    });
   }
 }
 

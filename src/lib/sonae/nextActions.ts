@@ -142,6 +142,5 @@ completed の中の具体的な対策名を最低1つ言及して、これまで
   return await getLlm().chatJson<NextActions>({
     prompt,
     responseFormat: NEXT_ACTIONS_JSON_SCHEMA,
-    maxTokens: 4096,
   });
 }

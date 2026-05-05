@@ -29,8 +29,6 @@ export function BuildingForm() {
         <h2 className="font-sans text-base text-ink mt-0.5">建物情報を入れて備えを最適化</h2>
         <p className="font-sans text-xs text-ink-mute mt-1 leading-relaxed">
           リサーチ完了後の対策候補がより精度高く絞り込まれます。
-          <br />
-          すべて任意・端末ローカル保存(クラウドに送信しません)。
         </p>
       </header>
 

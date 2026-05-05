@@ -57,9 +57,10 @@ export function DisasterDetailPanel() {
 
   const detectedEnums = useMemo(
     () =>
-      (result?.by_disaster_type ?? [])
-        .filter((d) => d.scenarios.length > 0)
-        .map((d) => disasterJpToEnum(d.disaster_type)),
+      // 言及されている災害種別はすべて対策フィルタに含める。シナリオが本編に
+      // 無い (= ハザードマップ等の別資料に詳細が委ねられている) 場合でも、
+      // 当該自治体で想定されているのは事実なので対策提示の対象にする。
+      (result?.by_disaster_type ?? []).map((d) => disasterJpToEnum(d.disaster_type)),
     [result],
   );
 

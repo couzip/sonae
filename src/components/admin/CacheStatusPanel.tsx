@@ -22,6 +22,13 @@ import { TextCacheEditDialog } from './TextCacheEditDialog';
 interface Props {
   code: string;
   initialStatus: CacheStatus;
+  /**
+   * registry に未登録 (cache-only) な自治体の場合 true。
+   * 全削除すると admin の自治体一覧 (registry∪cache) からこの自治体が消えるので、
+   * 完了後は親都道府県ページへ navigate する。
+   */
+  cacheOnly?: boolean;
+  prefectureCode?: string;
 }
 
 type Layer = 'discovery' | 'pdf' | 'ocr' | 'result' | 'work';
@@ -46,7 +53,12 @@ function fmtTime(s: string | undefined): string {
   return new Date(s).toLocaleString('ja-JP');
 }
 
-export function CacheStatusPanel({ code, initialStatus }: Props) {
+export function CacheStatusPanel({
+  code,
+  initialStatus,
+  cacheOnly = false,
+  prefectureCode,
+}: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +81,16 @@ export function CacheStatusPanel({ code, initialStatus }: Props) {
         const e = await r.json().catch(() => ({}));
         throw new Error(e.error ?? `HTTP ${r.status}`);
       }
-      startTransition(() => router.refresh());
+      // 全削除 + cache-only な自治体は、削除すると admin 一覧から消えて
+      // このページが 404 になる。親都道府県ページへ遷移する。
+      if (layer === 'all' && cacheOnly && prefectureCode) {
+        startTransition(() => {
+          router.push(`/admin/prefectures/${prefectureCode}`);
+          router.refresh();
+        });
+      } else {
+        startTransition(() => router.refresh());
+      }
     } catch (e: any) {
       setError(String(e?.message ?? e));
     } finally {

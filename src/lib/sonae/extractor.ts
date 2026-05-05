@@ -9,7 +9,7 @@
  * reducing per-call attention demand.
  */
 
-import type { Extractor, LlmClient, PipelineContext } from '@/lib/core';
+import type { Extractor, LlmClient, PipelineContext, ReasoningEffort } from '@/lib/core';
 import {
   DISASTER_TYPE_ENUM,
   STEP_A_JSON_SCHEMA,
@@ -19,7 +19,11 @@ import {
 } from './schemas';
 import type { SonaeParsed, SonaeQuery, SonaeSource } from './types';
 
-const HARD_MAX = 110_000;
+function readEffort(envValue: string | undefined): ReasoningEffort {
+  const v = (envValue ?? 'off').toLowerCase();
+  if (v === 'low' || v === 'medium' || v === 'high') return v;
+  return 'off';
+}
 
 interface StepAOut {
   types: string[];
@@ -53,31 +57,42 @@ export class SonaeMapReduceExtractor implements Extractor<
       message: `map-reduce 解析開始`,
     });
 
-    const md =
-      parsed.ocr_markdown.length > HARD_MAX
-        ? parsed.ocr_markdown.slice(0, HARD_MAX / 2) +
-          '\n\n[... 中略 ...]\n\n' +
-          parsed.ocr_markdown.slice(-HARD_MAX / 2)
-        : parsed.ocr_markdown;
+    const md = parsed.ocr_markdown;
     ctx.emit({
       type: 'log',
       phase: 'extract',
-      message: `入力長: ${md.length}文字 (元 ${parsed.ocr_markdown.length}文字)`,
+      message: `入力長: ${md.length}文字`,
     });
 
     // ----- Step A: disaster type enumeration -----
-    const stepAPrompt = `以下は${city}の地域防災計画から被害想定の章を抽出した文書です。
-この文書中で **言及されている災害種別** をすべて enum から抽出してください。
-歴史実績/想定シナリオ どちらでも、その災害種別が言及されていれば含める。
+    const stepAPrompt = `${city}の地域防災計画から被害想定の章を抽出した文書を解析してください。
 
---- 文書 ---
-${md}
----`;
+## タスク
+この文書中で言及されている災害種別を、下記 enum から **漏れなく** 抽出してください。
+
+- 歴史実績 / 想定シナリオ / リスク言及 のいずれでも、登場すれば含める
+- 文書の冒頭から末尾まで全体を確認すること (前半に集中せず後半まで読む)
+- 章 / 節 / 項が複数ある場合はそれぞれを別個に走査して、各セクションで言及される種別を全部拾うこと
+- 同じ enum 値が複数回登場しても 1 件として扱う
+
+## enum (この中からのみ選ぶ)
+${DISASTER_TYPE_ENUM.join(' / ')}
+
+## 文書
+${md}`;
+    const stepAEffort = readEffort(process.env.EXTRACT_STEP_A_REASONING_EFFORT);
+    if (stepAEffort !== 'off') {
+      ctx.emit({
+        type: 'log',
+        phase: 'extract',
+        message: `[A] reasoning effort=${stepAEffort}`,
+      });
+    }
     const t_a = Date.now();
     const stepA = await this.opts.llm.chatJson<StepAOut>({
       prompt: stepAPrompt,
       responseFormat: STEP_A_JSON_SCHEMA,
-      maxTokens: 1024,
+      reasoningEffort: stepAEffort,
     });
     const allowedTypes = new Set<string>(DISASTER_TYPE_ENUM);
     const rawTypes = [...new Set(stepA.types ?? [])];
@@ -111,10 +126,14 @@ ${md}
     }
 
     // ----- Step B: per-type scenarios -----
+    const stepBEffort = readEffort(process.env.EXTRACT_STEP_B_REASONING_EFFORT);
     ctx.emit({
       type: 'log',
       phase: 'extract',
-      message: `[B] 各種別ごとに scenarios 抽出 (${types.length} calls)`,
+      message:
+        stepBEffort !== 'off'
+          ? `[B] 各種別ごとに scenarios 抽出 (${types.length} calls, reasoning=${stepBEffort})`
+          : `[B] 各種別ごとに scenarios 抽出 (${types.length} calls)`,
     });
     const t_b = Date.now();
     const byType: DisasterAssessment['by_disaster_type'] = [];
@@ -137,7 +156,7 @@ ${md}
         const stepB = await this.opts.llm.chatJson<StepBOut>({
           prompt: stepBPrompt,
           responseFormat: STEP_B_JSON_SCHEMA,
-          maxTokens: 4096,
+          reasoningEffort: stepBEffort,
         });
         const dt = ((Date.now() - t0) / 1000).toFixed(1);
         const ss = stepB.scenarios ?? [];

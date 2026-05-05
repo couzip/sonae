@@ -443,7 +443,6 @@ ${tocMarkdown}
     const parsed = await this.opts.llm.chatJson<TocSelection>({
       prompt,
       responseFormat: TOC_JSON_SCHEMA,
-      maxTokens: 256,
     });
     const title = String(parsed.title ?? '')
       .replace(/^#+\s*/, '')

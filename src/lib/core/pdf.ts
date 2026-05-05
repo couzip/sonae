@@ -139,13 +139,13 @@ export interface RenderedPage {
  * Uses pdfjs-dist 5.x's built-in `canvasFactory` — at runtime this auto-detects
  * `@napi-rs/canvas` (which must be installed). No custom canvas factory needed.
  *
- * @param scale viewport scale factor; 2.5 is a good default for OCR (≈ 200 dpi).
+ * @param scale viewport scale factor; 1.5 ≈ 120 dpi.
  */
 export async function renderPages(
   pdfPath: string,
   outputAbsDir: string,
   pageNums: number[],
-  scale = 2.5,
+  scale = 1.5,
 ): Promise<RenderedPage[]> {
   mkdirSync(outputAbsDir, { recursive: true });
   const doc = await loadDocument(pdfPath);

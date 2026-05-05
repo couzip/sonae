@@ -41,7 +41,7 @@ export function AdminResearchButton({ code }: Props) {
     setLogs([
       {
         ts: Date.now(),
-        message: `解析開始 (${code}${force ? ', force' : ''})`,
+        message: force ? '解析開始 (キャッシュ全削除して再生成)' : '解析開始',
         tone: 'info',
       },
     ]);

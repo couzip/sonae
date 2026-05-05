@@ -14,7 +14,11 @@ export interface DisasterTreemapItem {
   enumType: string;
   scenarios: Scenario[];
   scaleScore: number;
+  /** 言及だけで本編にシナリオ記載が無い種別を 1 タイルにまとめた束 */
+  bundle?: string[];
 }
+
+const BUNDLE_KEY = '__info_bundle__';
 
 const SEVERITY_KEYWORD_WEIGHT: { keyword: RegExp; weight: number }[] = [
   { keyword: /M\s*9|マグニチュード\s*9/i, weight: 8 },
@@ -60,7 +64,7 @@ export function DisasterTreemap({ assessment, onSelect, selectedJpType }: Disast
   }, []);
 
   const items: DisasterTreemapItem[] = useMemo(() => {
-    return assessment.by_disaster_type
+    const active = assessment.by_disaster_type
       .filter((d) => d.scenarios.length > 0)
       .map((d) => ({
         jpType: d.disaster_type,
@@ -69,13 +73,29 @@ export function DisasterTreemap({ assessment, onSelect, selectedJpType }: Disast
         scaleScore: scoreScenarios(d.scenarios),
       }))
       .sort((a, b) => b.scaleScore - a.scaleScore);
+
+    const mentionedOnly = assessment.by_disaster_type
+      .filter((d) => d.scenarios.length === 0)
+      .map((d) => d.disaster_type);
+
+    if (mentionedOnly.length === 0) return active;
+
+    const bundle: DisasterTreemapItem = {
+      jpType: '別資料で要確認',
+      enumType: BUNDLE_KEY,
+      scenarios: [],
+      scaleScore: 0,
+      bundle: mentionedOnly,
+    };
+    return [...active, bundle];
   }, [assessment]);
 
   const layoutInput: TreemapInput<DisasterTreemapItem>[] = useMemo(
     () =>
       items.map((it) => ({
-        id: it.jpType,
-        weight: Math.max(0.5, it.scaleScore),
+        id: it.bundle ? BUNDLE_KEY : it.jpType,
+        // bundle (言及のみ束) は控えめサイズで表示
+        weight: it.bundle ? 1 : Math.max(0.5, it.scaleScore),
         payload: it,
       })),
     [items],
@@ -107,6 +127,7 @@ export function DisasterTreemap({ assessment, onSelect, selectedJpType }: Disast
               scale: isMeaningful(s.scale) ? s.scale : undefined,
               expected_damage: isMeaningful(s.expected_damage) ? s.expected_damage : undefined,
             }));
+            const isBundle = !!it.bundle;
             return (
               <TreemapNode
                 key={r.id}
@@ -117,9 +138,13 @@ export function DisasterTreemap({ assessment, onSelect, selectedJpType }: Disast
                 jaLabel={it.jpType}
                 scenarios={scenarios}
                 tone={disasterTone(it.jpType)}
-                isSelected={selectedJpType === it.jpType}
-                onClick={onSelect ? () => onSelect(it.jpType, it.enumType) : undefined}
+                isSelected={!isBundle && selectedJpType === it.jpType}
+                onClick={
+                  !isBundle && onSelect ? () => onSelect(it.jpType, it.enumType) : undefined
+                }
                 delay={i * 0.04}
+                infoOnly={isBundle}
+                bundleLabels={it.bundle}
               />
             );
           })}

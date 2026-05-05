@@ -21,6 +21,10 @@ interface TreemapNodeProps {
   onClick?: () => void;
   isSelected?: boolean;
   delay?: number;
+  /** 計画書に言及はあるが本編にシナリオ記載が無い種別。tile を muted 表示にする。 */
+  infoOnly?: boolean;
+  /** infoOnly のとき複数種別を 1 タイルにまとめる場合のラベル群 */
+  bundleLabels?: string[];
 }
 
 export function TreemapNode({
@@ -34,16 +38,30 @@ export function TreemapNode({
   onClick,
   isSelected,
   delay = 0,
+  infoOnly,
+  bundleLabels,
 }: TreemapNodeProps) {
   const count = scenarios.length;
   const showFull = width >= 220 && height >= 140;
   const showMid = width >= 140 && height >= 80 && !showFull;
   const showCompact = width >= 64 && height >= 36 && !showFull && !showMid;
 
-  const style = {
-    backgroundColor: tone.fill,
-    borderColor: isSelected ? '#14b8a6' : tone.border,
-  };
+  const style = infoOnly
+    ? {
+        backgroundColor: 'rgba(82, 82, 91, 0.18)',
+        borderColor: isSelected ? '#14b8a6' : 'rgba(82, 82, 91, 0.55)',
+        borderStyle: 'dashed' as const,
+      }
+    : {
+        backgroundColor: tone.fill,
+        borderColor: isSelected ? '#14b8a6' : tone.border,
+      };
+  const labelColor = infoOnly ? '#a1a1aa' : tone.text;
+  const subText = infoOnly
+    ? bundleLabels && bundleLabels.length > 0
+      ? `${bundleLabels.length} 種別`
+      : '詳細を要確認'
+    : `${count} 件`;
 
   return (
     <motion.foreignObject
@@ -79,65 +97,98 @@ export function TreemapNode({
         {showFull && (
           <div className="flex h-full flex-col gap-3 overflow-hidden">
             <header className="flex items-baseline gap-2 shrink-0">
-              <span className="font-sans text-2xl leading-tight" style={{ color: tone.text }}>
+              <span className="font-sans text-2xl leading-tight" style={{ color: labelColor }}>
                 {jaLabel}
               </span>
-              <span className="text-sm text-ink-dim tabular-nums">{count} 件</span>
+              <span className="text-sm text-ink-dim tabular-nums">{subText}</span>
             </header>
-            <ul className="flex flex-col gap-3 overflow-y-auto leading-relaxed min-h-0">
-              {scenarios.map((s, i) => (
-                <li key={i} className="flex flex-col gap-1">
-                  <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className="text-sm text-ink font-sans">
-                      {s.name ?? '想定シナリオ'}
-                    </span>
-                    {s.scale && (
-                      <span className="text-xs text-ink-dim tabular-nums">{s.scale}</span>
+            {infoOnly ? (
+              <div className="flex flex-col gap-2 overflow-y-auto min-h-0">
+                {bundleLabels && bundleLabels.length > 0 && (
+                  <ul className="flex flex-wrap gap-1.5">
+                    {bundleLabels.map((b) => (
+                      <li
+                        key={b}
+                        className="inline-flex items-center text-xs text-ink border-hairline border-hairline bg-bg-raised/60 px-2 py-0.5 rounded-cockpit"
+                      >
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-xs text-ink-mute leading-relaxed">
+                  計画書に言及はありますが、本編にシナリオ記載がないため、自治体ハザードマップ等の別資料で詳細をご確認ください。
+                </p>
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-3 overflow-y-auto leading-relaxed min-h-0">
+                {scenarios.map((s, i) => (
+                  <li key={i} className="flex flex-col gap-1">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="text-sm text-ink font-sans">
+                        {s.name ?? '想定シナリオ'}
+                      </span>
+                      {s.scale && (
+                        <span className="text-xs text-ink-dim tabular-nums">{s.scale}</span>
+                      )}
+                    </div>
+                    {s.expected_damage && (
+                      <p className="text-xs text-ink-mute leading-relaxed">{s.expected_damage}</p>
                     )}
-                  </div>
-                  {s.expected_damage && (
-                    <p className="text-xs text-ink-mute leading-relaxed">{s.expected_damage}</p>
-                  )}
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
         {showMid && (
           <div className="flex h-full flex-col gap-2 overflow-hidden">
             <header className="flex items-baseline gap-2 shrink-0">
-              <span className="font-sans text-lg leading-tight" style={{ color: tone.text }}>
+              <span className="font-sans text-lg leading-tight" style={{ color: labelColor }}>
                 {jaLabel}
               </span>
-              <span className="text-xs text-ink-dim tabular-nums">{count} 件</span>
+              <span className="text-xs text-ink-dim tabular-nums">{subText}</span>
             </header>
-            <ul className="flex flex-col gap-1.5 overflow-y-auto text-sm leading-snug min-h-0">
-              {scenarios.map((s, i) => (
-                <li key={i} className="flex items-baseline gap-2 truncate">
-                  <span className="text-ink truncate">{s.name ?? '想定シナリオ'}</span>
-                  {s.scale && (
-                    <span className="text-xs text-ink-dim shrink-0 tabular-nums">{s.scale}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
+            {infoOnly ? (
+              <div className="flex flex-col gap-1.5 overflow-y-auto min-h-0">
+                {bundleLabels && bundleLabels.length > 0 && (
+                  <p className="text-xs text-ink leading-snug truncate">
+                    {bundleLabels.join(' / ')}
+                  </p>
+                )}
+                <p className="text-xs text-ink-mute leading-snug">
+                  別資料 (ハザードマップ等) で詳細を確認
+                </p>
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-1.5 overflow-y-auto text-sm leading-snug min-h-0">
+                {scenarios.map((s, i) => (
+                  <li key={i} className="flex items-baseline gap-2 truncate">
+                    <span className="text-ink truncate">{s.name ?? '想定シナリオ'}</span>
+                    {s.scale && (
+                      <span className="text-xs text-ink-dim shrink-0 tabular-nums">{s.scale}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
         {showCompact && (
           <div className="flex h-full flex-col justify-between overflow-hidden">
             <span
               className="font-sans text-base leading-tight truncate"
-              style={{ color: tone.text }}
+              style={{ color: labelColor }}
             >
               {jaLabel}
             </span>
-            <span className="text-xs text-ink-dim tabular-nums">{count} 件</span>
+            <span className="text-xs text-ink-dim tabular-nums">{subText}</span>
           </div>
         )}
         {!showFull && !showMid && !showCompact && (
           <span
             className="font-sans text-sm leading-tight truncate block"
-            style={{ color: tone.text }}
+            style={{ color: labelColor }}
           >
             {jaLabel}
           </span>

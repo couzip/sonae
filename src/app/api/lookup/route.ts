@@ -48,6 +48,13 @@ export async function POST(req: Request) {
 
     // (a) curated registry hit (alias / disaster_plan_url pin がある場合)
     let muni = muniCd ? findByCode(muniCd) : null;
+    // 政令指定都市の区 (例: 熊本市南区 43103) は registry には親市 (43100) しか
+    // 入っていない。区単位での地域防災計画は東京 23 区のみで発行されており、
+    // 他の政令市では市単位で発行されるため、未登録の区コードは親市にフォールバック。
+    if (!muni && muniCd && muniCd.length === 5 && !muniCd.endsWith('00')) {
+      const parentCode = `${muniCd.slice(0, 2)}100`;
+      muni = findByCode(parentCode);
+    }
     if (!muni && address) muni = findByName(address);
     if (muni) {
       return NextResponse.json({

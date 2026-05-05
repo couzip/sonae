@@ -3,7 +3,7 @@
  * ファイルの存在 / size / mtime を返す。
  */
 
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 function cacheRoot(): string {
@@ -103,4 +103,45 @@ export function inspectCacheBriefly(code: string): {
     ocr: status.layers.find((l) => l.layer === 'ocr')?.exists ?? false,
     result: status.layers.find((l) => l.layer === 'result')?.exists ?? false,
   };
+}
+
+/**
+ * cache/ 配下を走査して、登場するすべての自治体コードを返す。
+ * discovery / pdfs / ocr / municipalities (= result) の各ディレクトリのファイル名から
+ * 5 桁の数値プレフィックスを抽出して和集合を取る。
+ */
+export function listAllCachedCodes(): string[] {
+  const root = cacheRoot();
+  const dirs = ['discovery', 'pdfs', 'ocr', 'municipalities'];
+  const codes = new Set<string>();
+  for (const d of dirs) {
+    let names: string[] = [];
+    try {
+      names = readdirSync(join(root, d));
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      const m = name.match(/^(\d{5})\b/);
+      if (m) codes.add(m[1]!);
+    }
+  }
+  return Array.from(codes).sort();
+}
+
+/**
+ * cache/municipalities/{code}.json から自治体名 (city フィールド) を読み出す。
+ * 解析結果が無い (result 未生成) 場合は null。
+ */
+export function readCachedMunicipalityName(code: string): string | null {
+  const root = cacheRoot();
+  const p = join(root, 'municipalities', `${code}.json`);
+  try {
+    const raw = readFileSync(p, 'utf-8');
+    const j = JSON.parse(raw);
+    if (j && typeof j.city === 'string' && j.city.length > 0) return j.city as string;
+  } catch {
+    /* ignore */
+  }
+  return null;
 }

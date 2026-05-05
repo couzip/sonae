@@ -12,7 +12,7 @@
  * Brave Search API is the planned replacement.
  */
 
-import { Agent, type AgentHistory } from 'browser-use';
+import { Agent, Controller, type AgentHistory } from 'browser-use';
 import { ChatOpenAI } from 'browser-use/llm/openai';
 import { BrowserSession, BrowserProfile } from 'browser-use/browser';
 
@@ -93,6 +93,11 @@ export function pickTarget(pdfs: PdfCandidate[], pageUrl: string): PdfCandidate 
     if (lab.includes('計画編')) s += 100;
     if (lab.includes('一括')) s += 30;
     if (lab.includes('ダイジェスト')) s += 40;
+    if (lab.includes('総則') || lab.includes('予防')) s += 110;
+    // 災害別に分冊されている場合、被害想定が最も網羅的に書かれるのは地震章。
+    if (lab.includes('地震') && (lab.includes('対策編') || lab.includes('編'))) s += 35;
+    // 発災後の対応マニュアルには被害想定の章は通常含まれない。
+    if (lab.includes('応急') || lab.includes('復旧') || lab.includes('復興')) s -= 80;
     if (lab.includes('資料')) s -= 50;
     if (lab.includes('水防')) s -= 30;
     if (lab.includes('校区') || lab.includes('地区') || lab.includes('校')) s -= 60;
@@ -133,7 +138,7 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
       type: 'phase',
       phase: 'discovery',
       status: 'started',
-      message: `${query.city_name} の地域防災計画 本編 PDF を browser-use で探索`,
+      message: `${query.city_name} の地域防災計画を探しています`,
     });
 
     const llm = new ChatOpenAI({
@@ -145,7 +150,6 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
       dontForceStructuredOutput: false,
       removeMinItemsFromSchema: true,
       removeDefaultsFromSchema: true,
-      maxCompletionTokens: 2048,
       timeout: 600_000,
     });
     const profile = new BrowserProfile({ headless: this.opts.headless ?? false });
@@ -157,21 +161,29 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
     const TASK = `あなたはブラウザ調査エージェントです。
 目的: ${fullName} の地域防災計画 本編 (本体) の PDF を公式サイトから特定する。
 
-【本編の定義】
+## 本編の定義
 - ラベルやファイル名に「本編」「計画編」「対策編」「総則」「予防計画」「ダイジェスト」「概要」を含む PDF
 - 数百ページ規模の本体ファイル
 - 公式自治体ドメインで配信されているもの (city.*.lg.jp / pref.*.lg.jp / *.go.jp 等)
 
-【除外 (本編ではない)】
+## 除外 (本編ではない)
 - 「修正の概要」「修正部分」「新旧対照」「変更点」「差分」「改定の概要」 → 改訂差分
 - 「資料」「様式」「校区」「地区」「水防」「避難計画」 → 付属資料・付録
 
-【絶対遵守】
-- 検索ボックスへの type は禁止。Google 検索は ${searchUrl} に go_to_url で直接遷移する
-- read_file は呼ばない
-- PDF を実際にダウンロード/開く必要はない。リンクの URL とラベルだけで本編か判定する
+## 分冊されている場合の選び方
+自治体によっては地域防災計画が複数 PDF に分かれている (巻ごと / 災害種別ごと等)。被害想定が含まれる可能性が高い順に積む:
 
-【手順】
+1. **計画の前段** (総則 / 災害予防 / 地震対策編 等) — 被害想定はここに書かれることが多い
+2. その他の対策編 (風水害 / 津波 / 土砂 等)
+
+**被害想定が無い分冊** (積まない):
+- 災害応急対策・応急対応・災害復旧・復興 → 発災後の対応で、被害想定の章は通常含まれない
+- 資料編 / 様式集 → 既出の除外ルール
+
+空の pdfs[] を返すのは、上記いずれも見つからない場合のみ。
+
+## 手順
+- まず ${searchUrl} に go_to_url で直接遷移する
 - Google 検索結果ページ (および必要なら 1〜2 ページ目) を見て、本編の定義に合致する PDF または HTML 記事ページを探す
 - 直接 PDF リンクが本編に該当する → そのリンク URL とラベルを pdfs[] に積む
 - HTML 記事ページが PDF 一覧を持っていそう → 1 ページだけクリックして中の PDF リンクを取得し pdfs[] に積む
@@ -179,18 +191,72 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
 - どちらの方法でも見つからなければ 別ドメイン (lg.jp, go.jp 等) も試す。それでも無ければ done で空の pdfs[] を返す
 - pdfs[] の URL は **絶対 URL** で返す`;
 
+    // search_google / search を除外して、エージェントが Google 検索 box に勝手に
+    // type して再検索ループに入るのを防ぐ。navigate / go_to_url は initial_actions
+    // で最初の URL ジャンプに必要なので残す (URL 短縮は _url_shortening_limit で
+    // 別途無効化済なので、エージェントが navigate で URL を構築しても truncate されない)。
+    const controller = new Controller({
+      exclude_actions: ['search_google', 'search'],
+    });
+    const initialActions: Array<Record<string, Record<string, unknown>>> = [
+      { navigate: { url: searchUrl, new_tab: false } },
+    ];
+
     const agent = new Agent({
       task: TASK,
       llm,
       browser_session: session,
       output_model_schema: pdfListParser,
+      controller,
+      initial_actions: initialActions,
+      // 内部の URL 短縮 (デフォルト 25 文字超を `...md5` で置換) を無効化。
+      // Japanese を含む長い percent-encoded クエリが壊れるのを防ぐ。
+      _url_shortening_limit: 100_000,
       use_vision: false,
       use_thinking: false,
       flash_mode: true,
       use_judge: false,
       enable_planning: false,
       max_failures: 3,
-      max_actions_per_step: 2,
+      register_new_step_callback: (state: any, output: any, step: number) => {
+        // browser-use が返す state.title は Chromium → 内部 IPC を経由する過程で
+        // 文字コードが破損して mojibake になることがある (UTF-8 を Shift_JIS と誤解釈)。
+        // URL はパーセントエンコード済の ASCII セーフな文字列で、再デコードしても
+        // 結果が安定する。なので表示は URL のみに統一し、title は使わない。
+        const url: string = (state?.url as string) ?? '';
+        const goal: string = (output?.next_goal as string) ?? '';
+        const actions: string[] = Array.isArray(output?.action)
+          ? output.action
+              .map((a: any) => (a && typeof a === 'object' ? Object.keys(a)[0] : ''))
+              .filter(Boolean)
+          : [];
+
+        // Google 検索ページは q パラメータをデコードして表示する方が読みやすい。
+        // それ以外は URL をそのまま (絶対 URL の人間可読形式)。
+        let where = url;
+        try {
+          if (url) {
+            const u = new URL(url);
+            if (u.hostname.includes('google.') && u.pathname === '/search') {
+              const q = u.searchParams.get('q');
+              if (q) where = `Google検索: ${q}`;
+            }
+          }
+        } catch {
+          /* fall back to raw url */
+        }
+
+        const segs: string[] = [];
+        segs.push(`step ${step}`);
+        if (actions.length) segs.push(actions.join('+'));
+        if (where) segs.push(where.length > 200 ? where.slice(0, 200) + '…' : where);
+        if (goal) segs.push(`→ ${goal.length > 200 ? goal.slice(0, 200) + '…' : goal}`);
+        ctx.emit({
+          type: 'log',
+          phase: 'discovery',
+          message: segs.join(' | '),
+        });
+      },
     });
 
     let listing: PdfList;
@@ -331,21 +397,20 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
       try {
         const j = JSON.parse(sr[1]);
         if (Array.isArray(j.pdfs) && j.pdfs.length) {
-          const resolved = j.pdfs
-            .map((p: any) => {
-              try {
-                return {
-                  url: new URL(
-                    cleanRelativeUrl(p.url),
-                    baseUrl || j.page_url || 'https://example.com/',
-                  ).href,
-                  label: p.label || p.url,
-                };
-              } catch {
-                return null;
+          const resolved: PdfCandidate[] = [];
+          for (const p of j.pdfs) {
+            try {
+              const abs = new URL(
+                cleanRelativeUrl(p.url),
+                baseUrl || j.page_url || 'https://example.com/',
+              ).href;
+              if (abs.toLowerCase().endsWith('.pdf')) {
+                resolved.push({ url: abs, label: p.label || p.url });
               }
-            })
-            .filter(Boolean) as PdfCandidate[];
+            } catch {
+              /* skip invalid url */
+            }
+          }
           if (resolved.length) return { page_url: baseUrl || j.page_url || '', pdfs: resolved };
         }
       } catch {
@@ -355,6 +420,22 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
 
     const pdfs: PdfCandidate[] = [];
     const seen = new Set<string>();
+
+    // エージェントが直接 PDF URL に navigate していた場合、それを最優先候補として拾う
+    // (browser-use が done を返さず終了した場合でも、訪問履歴に痕跡が残る)
+    for (const u of visitedUrls) {
+      if (!u || u === 'about:blank') continue;
+      try {
+        const abs = new URL(cleanRelativeUrl(u)).href;
+        if (abs.toLowerCase().endsWith('.pdf') && !seen.has(abs)) {
+          seen.add(abs);
+          pdfs.push({ url: abs, label: decodeURIComponent(abs.split('/').pop() ?? abs) });
+        }
+      } catch {
+        /* ignore invalid URL */
+      }
+    }
+
     const anchorRe = /<a>[^<>]*?text="([^"]+?)"[^<>]*?href="([^"]+?\.pdf)"/gi;
     let m2: RegExpExecArray | null;
     while ((m2 = anchorRe.exec(text)) !== null) {

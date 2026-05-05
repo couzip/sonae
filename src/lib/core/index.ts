@@ -32,6 +32,7 @@ export {
   type LlmClientConfig,
   type ChatJsonOptions,
   type ChatVisionOptions,
+  type ReasoningEffort,
 } from './llm';
 
 export { repairTruncatedJson } from './repairJson';

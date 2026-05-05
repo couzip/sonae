@@ -19,12 +19,21 @@ export interface LlmClientConfig {
   timeoutMs?: number;
 }
 
+export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high';
+
 export interface ChatJsonOptions {
   prompt: string;
   responseFormat: object; // OpenAI `response_format` shape (`{type:"json_schema", json_schema:{...}}`)
   maxTokens?: number;
   temperature?: number;
   signal?: AbortSignal;
+  /**
+   * Reasoning / thinking モードの強度。'off' は無効化、それ以外は OpenRouter / LiteLLM の
+   * `extra_body: { reasoning: { enabled: true, effort: ... } }` 形式で送信される。
+   * Gemma 4 a4b で発火させるには `reasoning_effort` 単独ではなく object 形式が必要。
+   * デフォルト: 'off'。
+   */
+  reasoningEffort?: ReasoningEffort;
 }
 
 export interface ChatVisionOptions {
@@ -51,30 +60,40 @@ export function createLlmClient(config: LlmClientConfig): LlmClient {
     async chatJson<T>({
       prompt,
       responseFormat,
-      maxTokens = 4096,
+      maxTokens,
       temperature = 0,
       signal,
+      reasoningEffort = 'off',
     }: ChatJsonOptions): Promise<T> {
+      const requestBody: Record<string, unknown> = {
+        model: config.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature,
+        response_format: responseFormat,
+      };
+      if (maxTokens != null) requestBody.max_tokens = maxTokens;
+      if (reasoningEffort !== 'off') {
+        requestBody.extra_body = {
+          reasoning: { enabled: true, effort: reasoningEffort },
+        };
+      }
       const r = await fetch(`${config.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${config.apiKey}`,
         },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature,
-          max_tokens: maxTokens,
-          response_format: responseFormat,
-        }),
+        body: JSON.stringify(requestBody),
         signal: signal ?? AbortSignal.timeout(timeoutMs),
       });
       if (!r.ok) {
         throw new Error(`LLM HTTP ${r.status}: ${await r.text()}`);
       }
       const body = await r.json();
-      const text: string = body?.choices?.[0]?.message?.content ?? '';
+      const msg = body?.choices?.[0]?.message ?? {};
+      // 一部 provider では reasoning モード時に content が空で reasoning_content
+      // 側に最終回答が入るケースがある。OpenRouter は両方返すので content 優先で問題なし。
+      const text: string = (msg.content || msg.reasoning_content || '') as string;
       try {
         return JSON.parse(text) as T;
       } catch (e) {
@@ -89,32 +108,33 @@ export function createLlmClient(config: LlmClientConfig): LlmClient {
     async chatVision({
       prompt,
       imageBase64,
-      maxTokens = 4096,
+      maxTokens,
       signal,
     }: ChatVisionOptions): Promise<string> {
+      const visionBody: Record<string, unknown> = {
+        model: config.model,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              {
+                type: 'image_url',
+                image_url: { url: `data:image/png;base64,${imageBase64}` },
+              },
+            ],
+          },
+        ],
+        temperature: 0,
+      };
+      if (maxTokens != null) visionBody.max_tokens = maxTokens;
       const r = await fetch(`${config.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${config.apiKey}`,
         },
-        body: JSON.stringify({
-          model: config.model,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: prompt },
-                {
-                  type: 'image_url',
-                  image_url: { url: `data:image/png;base64,${imageBase64}` },
-                },
-              ],
-            },
-          ],
-          temperature: 0,
-          max_tokens: maxTokens,
-        }),
+        body: JSON.stringify(visionBody),
         signal: signal ?? AbortSignal.timeout(timeoutMs),
       });
       if (!r.ok) {

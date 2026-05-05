@@ -16,8 +16,7 @@ export function DeleteMunicipalityButton({
   const [error, setError] = useState<string | null>(null);
 
   const handle = async () => {
-    if (!confirm(`code=${code} を registry から削除します (cache は残ります)。よろしいですか?`))
-      return;
+    if (!confirm('この自治体を登録から削除します (キャッシュは残ります)。よろしいですか?')) return;
     setBusy(true);
     setError(null);
     try {
