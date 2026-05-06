@@ -33,8 +33,9 @@ export async function POST(req: Request) {
   }
   try {
     addRegistryEntry(parsed.data);
-  } catch (e: any) {
-    return NextResponse.json({ error: String(e?.message ?? e) }, { status: 409 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: msg }, { status: 409 });
   }
   return NextResponse.json({ ok: true, code: parsed.data.code }, { status: 201 });
 }

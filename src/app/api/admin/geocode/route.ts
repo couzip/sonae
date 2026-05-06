@@ -21,8 +21,9 @@ export async function GET(req: Request) {
   try {
     const hits = await forwardGeocode(q);
     return NextResponse.json({ hits: hits.slice(0, 8) });
-  } catch (e: any) {
-    return NextResponse.json({ error: String(e?.message ?? e) }, { status: 502 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: msg }, { status: 502 });
   }
 }
 
@@ -44,7 +45,8 @@ export async function POST(req: Request) {
   try {
     const r = await reverseGeocode(parsed.data.lat, parsed.data.lng);
     return NextResponse.json(r ?? null);
-  } catch (e: any) {
-    return NextResponse.json({ error: String(e?.message ?? e) }, { status: 502 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: msg }, { status: 502 });
   }
 }

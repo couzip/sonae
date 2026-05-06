@@ -42,8 +42,9 @@ export function SaveReportPdfButton() {
       if (!el) throw new Error('レポート要素が見つかりません');
       const filename = `sonae_${municipality.code}_${new Date().toISOString().slice(0, 10)}.pdf`;
       await generateReportPdf(el, filename);
-    } catch (e: any) {
-      setError(`PDF 生成に失敗しました: ${e?.message ?? e}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(`PDF 生成に失敗しました: ${msg}`);
     } finally {
       setBusy(false);
     }

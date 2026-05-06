@@ -110,10 +110,8 @@ export async function POST(req: Request) {
           reqBody.checklist_state.pending.length + reqBody.checklist_state.unanswered.length,
       },
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: 'LLM 呼び出しに失敗', detail: String(e?.message ?? e) },
-      { status: 500 },
-    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: 'LLM 呼び出しに失敗', detail: msg }, { status: 500 });
   }
 }

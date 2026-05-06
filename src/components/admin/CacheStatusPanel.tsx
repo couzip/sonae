@@ -91,8 +91,8 @@ export function CacheStatusPanel({
       } else {
         startTransition(() => router.refresh());
       }
-    } catch (e: any) {
-      setError(String(e?.message ?? e));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
     }
@@ -245,7 +245,9 @@ export function CacheStatusPanel({
       <TextCacheEditDialog
         title="OCR markdown を編集"
         endpoint={`/api/admin/cache/${encodeURIComponent(code)}/ocr`}
-        extract={(d: any) => d?.markdown ?? ''}
+        extract={(d: unknown) =>
+          (d as { markdown?: string } | null | undefined)?.markdown ?? ''
+        }
         build={(text) => ({ markdown: text })}
         notice="保存すると解析結果キャッシュも自動で削除されます (再生成が必要)。"
         open={ocrEditOpen}
@@ -255,7 +257,7 @@ export function CacheStatusPanel({
       <TextCacheEditDialog
         title="解析結果 JSON を編集"
         endpoint={`/api/admin/cache/${encodeURIComponent(code)}/result`}
-        extract={(d: any) => (d ? JSON.stringify(d, null, 2) : '')}
+        extract={(d: unknown) => (d ? JSON.stringify(d, null, 2) : '')}
         build={(text) => JSON.parse(text)}
         validate={(text) => {
           try {

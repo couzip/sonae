@@ -115,8 +115,8 @@ export function MunicipalityForm({ mode, initial, onAfterSubmit }: Props) {
         router.push(`/admin/municipalities/${encodeURIComponent(v.code)}`);
       }
       onAfterSubmit?.();
-    } catch (e: any) {
-      setError(String(e?.message ?? e));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }

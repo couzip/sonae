@@ -72,10 +72,11 @@ export function createHttpFreshness<TSource extends { url: string }>(
         etag: r.headers.get('etag') ?? undefined,
         content_length: parseLen(r.headers.get('content-length')),
       };
-    } catch (e: any) {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
       return {
         verdict: 'unknown',
-        reason: `HEAD failed: ${e?.message ?? e}`,
+        reason: `HEAD failed: ${msg}`,
         serverHeaders,
       };
     }

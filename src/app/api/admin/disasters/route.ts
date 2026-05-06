@@ -42,8 +42,9 @@ export async function GET(req: Request) {
           cityName: name,
           prefecture,
         });
-      } catch (err: any) {
-        emit({ type: 'error', message: `エラー: ${err?.message ?? String(err)}` });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        emit({ type: 'error', message: `エラー: ${msg}` });
       } finally {
         try {
           controller.close();

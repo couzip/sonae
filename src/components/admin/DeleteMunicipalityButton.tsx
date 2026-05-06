@@ -28,8 +28,8 @@ export function DeleteMunicipalityButton({
         throw new Error(e.error ?? `HTTP ${r.status}`);
       }
       router.push(`/admin/prefectures/${prefecture_code}`);
-    } catch (e: any) {
-      setError(String(e?.message ?? e));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
     }
   };

@@ -52,9 +52,10 @@ export function MapHost() {
         name: data.name,
         prefecture: data.prefecture,
       });
-    } catch (e: any) {
-      if (e?.name === 'AbortError') return;
-      setError(`場所の解決に失敗しました: ${e?.message ?? e}`);
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return;
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(`場所の解決に失敗しました: ${msg}`);
     } finally {
       if (lookupAbortRef.current === ctl) {
         setLooking(false);

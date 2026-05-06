@@ -57,8 +57,9 @@ export function GeocodeInput({
         setSuggestions(list);
         setOpen(list.length > 0);
         setActiveIdx(-1);
-      } catch (e: any) {
-        onError?.(`住所検索エラー: ${e?.message ?? e}`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        onError?.(`住所検索エラー: ${msg}`);
       }
     }, 250);
     return () => {

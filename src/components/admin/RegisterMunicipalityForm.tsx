@@ -57,8 +57,8 @@ export function RegisterMunicipalityForm() {
       }
       router.push(`/admin/municipalities/${encodeURIComponent(derived.code!)}`);
       router.refresh();
-    } catch (e: any) {
-      setError(String(e?.message ?? e));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
     }
   };

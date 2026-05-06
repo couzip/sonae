@@ -31,8 +31,8 @@ export function LoginForm({ next }: Props) {
       }
       router.push(next);
       router.refresh();
-    } catch (e: any) {
-      setError(String(e?.message ?? e));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
       setBusy(false);
     }
   };

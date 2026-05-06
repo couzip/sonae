@@ -1,24 +1,22 @@
 'use client';
 
 import { create } from 'zustand';
-import type { NextActions } from '@/lib/sonae';
+import type { NextActions, NextActionsInput } from '@/lib/sonae';
 
 export type RecommendationsStatus = 'idle' | 'loading' | 'done' | 'error';
 
+type UserProfile = NextActionsInput['user_profile'];
+type ChecklistState = NextActionsInput['checklist_state'];
+
 interface RecState {
   status: RecommendationsStatus;
-  result: (NextActions & { meta?: any }) | null;
+  result: NextActions | null;
   error: string | null;
   generate: (
     code: string,
     name: string,
-    profile: any,
-    checklistState: {
-      completed: string[];
-      pending: string[];
-      not_applicable: string[];
-      unanswered: string[];
-    },
+    profile: UserProfile,
+    checklistState: ChecklistState,
   ) => Promise<void>;
   reset: () => void;
 }
@@ -45,8 +43,8 @@ export const useRecommendationsStore = create<RecState>()((set) => ({
       }
       const data = await r.json();
       set({ status: 'done', result: data });
-    } catch (e: any) {
-      set({ status: 'error', error: String(e?.message ?? e) });
+    } catch (e) {
+      set({ status: 'error', error: e instanceof Error ? e.message : String(e) });
     }
   },
   reset: () => set({ status: 'idle', result: null, error: null }),

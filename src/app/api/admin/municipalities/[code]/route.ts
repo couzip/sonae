@@ -45,8 +45,9 @@ export async function PATCH(
   }
   try {
     updateRegistryEntry(code, parsed.data);
-  } catch (e: any) {
-    return NextResponse.json({ error: String(e?.message ?? e) }, { status: 404 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: msg }, { status: 404 });
   }
   return NextResponse.json({ ok: true });
 }
@@ -58,8 +59,9 @@ export async function DELETE(
   const { code } = await params;
   try {
     deleteRegistryEntry(code);
-  } catch (e: any) {
-    return NextResponse.json({ error: String(e?.message ?? e) }, { status: 404 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: msg }, { status: 404 });
   }
   return new NextResponse(null, { status: 204 });
 }

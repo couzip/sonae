@@ -30,10 +30,8 @@ export async function GET(req: Request) {
       detected_disasters: detectedTypes,
       items: filtered,
     });
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: `checklist failed: ${String(e?.message ?? e)}` },
-      { status: 500 },
-    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: `checklist failed: ${msg}` }, { status: 500 });
   }
 }

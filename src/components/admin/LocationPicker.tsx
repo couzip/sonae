@@ -107,8 +107,8 @@ export function LocationPicker({ initialLat, initialLng, onPick }: Props) {
       const data = (await r.json()) as { hits: ForwardHit[] };
       setHits(data.hits);
       if (data.hits.length === 0) setSearchError('該当する場所が見つかりません');
-    } catch (e: any) {
-      setSearchError(String(e?.message ?? e));
+    } catch (e) {
+      setSearchError(e instanceof Error ? e.message : String(e));
     } finally {
       setSearching(false);
     }

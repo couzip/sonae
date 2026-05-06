@@ -45,8 +45,9 @@ export function LocationInputBar() {
         source: 'gps',
       });
       setMunicipality({ code: res.municipality_code, name: res.name, prefecture: res.prefecture });
-    } catch (e: any) {
-      setError(`現在地から自治体を特定できません: ${e?.message ?? e}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(`現在地から自治体を特定できません: ${msg}`);
     } finally {
       setLooking(false);
     }
@@ -58,8 +59,9 @@ export function LocationInputBar() {
       const res = await lookup({ mode: 'address', value: s.address });
       setPicked({ lat: s.lat, lng: s.lng, address: res.resolved.address, source: 'address' });
       setMunicipality({ code: res.municipality_code, name: res.name, prefecture: res.prefecture });
-    } catch (e: any) {
-      setError(`住所から自治体を特定できません: ${e?.message ?? e}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(`住所から自治体を特定できません: ${msg}`);
     } finally {
       setLooking(false);
     }
