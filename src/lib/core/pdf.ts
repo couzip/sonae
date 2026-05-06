@@ -149,7 +149,18 @@ export async function renderPages(
 ): Promise<RenderedPage[]> {
   mkdirSync(outputAbsDir, { recursive: true });
   const doc = await loadDocument(pdfPath);
-  const factory: any = (doc as any).canvasFactory;
+
+  // pdfjs-dist の Node 環境用 canvasFactory は doc に紐付いて公開されるが、公式型に
+  // 含まれていないので、利用するメソッドだけを宣言した最小インターフェースで取り出す。
+  interface CanvasContext {
+    canvas: { toBuffer: (mime: string) => Buffer };
+    context: unknown;
+  }
+  interface CanvasFactory {
+    create: (width: number, height: number) => CanvasContext;
+    destroy: (cc: CanvasContext) => void;
+  }
+  const factory = (doc as unknown as { canvasFactory?: CanvasFactory }).canvasFactory;
   if (!factory || typeof factory.create !== 'function') {
     await doc.destroy();
     throw new Error('pdfjs-dist canvasFactory unavailable. Ensure `@napi-rs/canvas` is installed.');
@@ -163,9 +174,9 @@ export async function renderPages(
       const cc = factory.create(viewport.width, viewport.height);
       try {
         await page.render({
-          canvasContext: cc.context,
+          canvasContext: cc.context as Parameters<typeof page.render>[0]['canvasContext'],
           viewport,
-          canvas: cc.canvas,
+          canvas: cc.canvas as unknown as Parameters<typeof page.render>[0]['canvas'],
         }).promise;
         const buf = cc.canvas.toBuffer('image/png');
         const filename = `page_${String(n).padStart(4, '0')}.png`;

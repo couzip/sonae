@@ -75,10 +75,10 @@ export function MapBaseClient({
     map.on('dragstart', () => {
       userInteractedRef.current = true;
     });
-    map.on('moveend', (e: any) => {
+    map.on('moveend', (e) => {
       // flyTo / programmatic move を除外: ユーザー操作のみで lookup 起動
       if (!userInteractedRef.current) return;
-      if (e?.originalEvent == null && !map.isMoving()) return;
+      if (e.originalEvent == null && !map.isMoving()) return;
       const c = map.getCenter();
       onCenterChangeRef.current?.(c.lng, c.lat);
     });

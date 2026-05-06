@@ -1,4 +1,9 @@
-import { hierarchy, treemap, treemapSquarify } from 'd3-hierarchy';
+import {
+  hierarchy,
+  treemap,
+  treemapSquarify,
+  type HierarchyRectangularNode,
+} from 'd3-hierarchy';
 
 export interface TreemapInput<T> {
   id: string;
@@ -16,6 +21,13 @@ export interface TreemapRect<T> {
   payload: T;
 }
 
+interface InternalNode<T> {
+  id?: string;
+  weight?: number;
+  payload?: T;
+  children?: InternalNode<T>[];
+}
+
 export function computeTreemap<T>(
   items: TreemapInput<T>[],
   width: number,
@@ -24,34 +36,28 @@ export function computeTreemap<T>(
 ): TreemapRect<T>[] {
   if (!items.length || width <= 0 || height <= 0) return [];
 
-  const root = hierarchy<{ children?: TreemapInput<T>[] } & Partial<TreemapInput<T>>>({
-    children: items,
-  } as any).sum((d: any) => (d.weight as number | undefined) ?? 0);
+  const rootData: InternalNode<T> = { children: items };
+  const root = hierarchy<InternalNode<T>>(rootData).sum((d) => d.weight ?? 0);
 
-  const layout = treemap<
-    typeof root extends infer R ? (R extends { data: infer D } ? D : never) : never
-  >()
+  const layout = treemap<InternalNode<T>>()
     .size([width, height])
     .padding(padding)
     .tile(treemapSquarify);
 
-  layout(root as any);
+  const laidOut = layout(root) as HierarchyRectangularNode<InternalNode<T>>;
 
   const rects: TreemapRect<T>[] = [];
-  for (const leaf of root.leaves()) {
-    const data = leaf.data as unknown as TreemapInput<T>;
-    const x0 = (leaf as any).x0 as number;
-    const x1 = (leaf as any).x1 as number;
-    const y0 = (leaf as any).y0 as number;
-    const y1 = (leaf as any).y1 as number;
+  for (const leaf of laidOut.leaves()) {
+    const d = leaf.data;
+    if (d.id == null || d.weight == null || d.payload == null) continue;
     rects.push({
-      id: data.id,
-      x: x0,
-      y: y0,
-      width: Math.max(0, x1 - x0),
-      height: Math.max(0, y1 - y0),
-      weight: data.weight,
-      payload: data.payload,
+      id: d.id,
+      x: leaf.x0,
+      y: leaf.y0,
+      width: Math.max(0, leaf.x1 - leaf.x0),
+      height: Math.max(0, leaf.y1 - leaf.y0),
+      weight: d.weight,
+      payload: d.payload,
     });
   }
   return rects;
