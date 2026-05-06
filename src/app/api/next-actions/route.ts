@@ -4,13 +4,28 @@ import {
   filterByDetectedDisasters,
   generateNextActions,
   loadCountermeasures,
+  normalizeChecklistStateForActions,
   readSonaeResult,
   type NextActionsInput,
 } from '@/lib/sonae';
+import { filterByProfile, type ProfileForFilter } from '@/lib/sonae/client/countermeasures-filter';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
+
+const BuildingTypeSchema = z.enum(['wood', 'steel', 'rc', 'src']);
+const OwnershipSchema = z.enum(['owned', 'rented']);
+const HouseholdMemberSchema = z.enum([
+  'alone',
+  'adults',
+  'children',
+  'infant',
+  'elderly',
+  'care_needed',
+  'pets',
+]);
+const LocationTypeSchema = z.enum(['coastal', 'inland', 'mountainous', 'urban']);
 
 const RequestSchema = z.object({
   location: z.object({
@@ -21,15 +36,15 @@ const RequestSchema = z.object({
     building: z
       .object({
         year_built: z.number().nullable().optional(),
-        construction: z.string().nullable().optional(),
+        construction: BuildingTypeSchema.nullable().optional(),
         total_floors: z.number().nullable().optional(),
         living_floor: z.number().nullable().optional(),
-        ownership: z.string().nullable().optional(),
+        ownership: OwnershipSchema.nullable().optional(),
       })
       .optional(),
     household: z
       .object({
-        composition: z.array(z.string()).optional(),
+        composition: z.array(HouseholdMemberSchema).optional(),
         members_count: z.number().nullable().optional(),
       })
       .optional(),
@@ -37,6 +52,7 @@ const RequestSchema = z.object({
       .object({
         weekday_location: z.string().nullable().optional(),
         has_car: z.boolean().nullable().optional(),
+        location_types: z.array(LocationTypeSchema).optional(),
       })
       .optional(),
   }),
@@ -82,16 +98,30 @@ export async function POST(req: Request) {
 
   // プロファイル + 検出災害で countermeasures を絞り込み
   const master = loadCountermeasures();
-  const available_actions = filterByDetectedDisasters(
+  const byDisaster = filterByDetectedDisasters(
     master,
     detected_disasters.map((d) => d.type),
+  );
+  const profileForFilter: ProfileForFilter = {
+    building: {
+      year_built: reqBody.user_profile.building?.year_built,
+      construction: reqBody.user_profile.building?.construction,
+      ownership: reqBody.user_profile.building?.ownership,
+    },
+    household: { composition: reqBody.user_profile.household?.composition },
+    location_types: reqBody.user_profile.lifestyle?.location_types,
+  };
+  const available_actions = filterByProfile(byDisaster, profileForFilter);
+  const checklist_state = normalizeChecklistStateForActions(
+    reqBody.checklist_state,
+    available_actions,
   );
 
   const input: NextActionsInput = {
     location: reqBody.location,
     detected_disasters,
     user_profile: reqBody.user_profile,
-    checklist_state: reqBody.checklist_state,
+    checklist_state,
     available_actions,
   };
 
@@ -105,9 +135,8 @@ export async function POST(req: Request) {
       priority_actions: filtered,
       meta: {
         candidate_count: available_actions.length,
-        completed_count: reqBody.checklist_state.completed.length,
-        pending_count:
-          reqBody.checklist_state.pending.length + reqBody.checklist_state.unanswered.length,
+        completed_count: checklist_state.completed.length,
+        pending_count: checklist_state.pending.length + checklist_state.unanswered.length,
       },
     });
   } catch (e) {

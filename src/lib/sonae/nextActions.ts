@@ -7,9 +7,22 @@
  * `strategic_insights` and `priority_actions` accordingly.
  */
 
-import type { Countermeasure } from '@/lib/sonae/client/countermeasures-filter';
+import type {
+  BuildingType,
+  Countermeasure,
+  HouseholdMember,
+  LocationType,
+  Ownership,
+} from '@/lib/sonae/client/countermeasures-filter';
 import { getLlm } from './llmRoles';
 import { NextActionsSchema, type NextActions } from './schemas';
+
+export interface NextActionsChecklistState {
+  completed: string[];
+  pending: string[];
+  not_applicable: string[];
+  unanswered: string[];
+}
 
 export interface NextActionsInput {
   location: { municipality_code: string; name: string };
@@ -17,28 +30,49 @@ export interface NextActionsInput {
   user_profile: {
     building?: {
       year_built?: number | null;
-      construction?: string | null;
+      construction?: BuildingType | null;
       total_floors?: number | null;
       living_floor?: number | null;
-      ownership?: string | null;
+      ownership?: Ownership | null;
     };
     household?: {
-      composition?: string[];
+      composition?: HouseholdMember[];
       members_count?: number | null;
     };
     lifestyle?: {
       weekday_location?: string | null;
       has_car?: boolean | null;
+      location_types?: LocationType[];
     };
   };
-  checklist_state: {
-    completed: string[];
-    pending: string[];
-    not_applicable: string[];
-    unanswered: string[];
-  };
+  checklist_state: NextActionsChecklistState;
   available_actions: Countermeasure[];
 }
+
+const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
+  coastal: '海岸部',
+  inland: '内陸',
+  mountainous: '山間部',
+  urban: '都市部',
+};
+
+const BUILDING_TYPE_LABELS: Record<BuildingType, string> = {
+  wood: '木造',
+  steel: '鉄骨造',
+  rc: 'RC造',
+  src: 'SRC造',
+  any: '構造未指定',
+};
+
+const HOUSEHOLD_MEMBER_LABELS: Record<HouseholdMember, string> = {
+  alone: '単身',
+  adults: '成人',
+  children: '子ども',
+  infant: '乳幼児',
+  elderly: '高齢者',
+  care_needed: '要支援者',
+  pets: 'ペット',
+};
 
 export function summarizeProfile(p: NextActionsInput['user_profile']): string {
   const parts: string[] = [];
@@ -46,12 +80,52 @@ export function summarizeProfile(p: NextActionsInput['user_profile']): string {
     const age = new Date().getFullYear() - p.building.year_built;
     parts.push(`築${age}年(${p.building.year_built}年)`);
   }
-  if (p.building?.construction) parts.push(p.building.construction);
+  if (p.building?.construction) parts.push(BUILDING_TYPE_LABELS[p.building.construction]);
   if (p.building?.ownership) parts.push(p.building.ownership === 'owned' ? '所有' : '賃貸');
   if (p.building?.total_floors) parts.push(`${p.building.total_floors}階建`);
   if (p.building?.living_floor) parts.push(`${p.building.living_floor}階居住`);
-  if (p.household?.composition?.length) parts.push(`同居: ${p.household.composition.join('/')}`);
+  if (p.household?.composition?.length) {
+    parts.push(`同居: ${p.household.composition.map((v) => HOUSEHOLD_MEMBER_LABELS[v]).join('/')}`);
+  }
+  if (p.lifestyle?.location_types?.length) {
+    parts.push(`地域: ${p.lifestyle.location_types.map((v) => LOCATION_TYPE_LABELS[v]).join('/')}`);
+  }
   return parts.length ? parts.join(' / ') : '未入力';
+}
+
+function uniqByFirstCategory(ids: string[], assigned: Set<string>): string[] {
+  const out: string[] = [];
+  for (const id of ids) {
+    if (!id || assigned.has(id)) continue;
+    assigned.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+/**
+ * The client only stores checklist entries the user touched. Treat every
+ * available action that is not explicitly classified as unanswered so a fresh
+ * checklist still yields recommendations.
+ */
+export function normalizeChecklistStateForActions(
+  checklistState: NextActionsChecklistState,
+  availableActions: Pick<Countermeasure, 'id'>[],
+): NextActionsChecklistState {
+  const assigned = new Set<string>();
+  const completed = uniqByFirstCategory(checklistState.completed, assigned);
+  const pending = uniqByFirstCategory(checklistState.pending, assigned);
+  const not_applicable = uniqByFirstCategory(checklistState.not_applicable, assigned);
+  const unanswered = uniqByFirstCategory(checklistState.unanswered, assigned);
+
+  for (const action of availableActions) {
+    if (!assigned.has(action.id)) {
+      assigned.add(action.id);
+      unanswered.push(action.id);
+    }
+  }
+
+  return { completed, pending, not_applicable, unanswered };
 }
 
 export async function generateNextActions(input: NextActionsInput): Promise<NextActions> {

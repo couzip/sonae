@@ -9,7 +9,7 @@
  * configuration of the same `Pipeline` class.
  */
 
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import {
@@ -142,7 +142,9 @@ class PdfBlobCache {
   async read(key: string, ctx: PipelineContext): Promise<SonaeBlob | null> {
     const meta = await this.metaCache.read(key, ctx);
     if (!meta) return null;
-    return { ...meta, pdf_path: this.pdfPath(key) };
+    const pdf_path = this.pdfPath(key);
+    if (!existsSync(pdf_path)) return null;
+    return { ...meta, pdf_path };
   }
 
   async write(key: string, value: SonaeBlob, ctx: PipelineContext): Promise<void> {
@@ -324,7 +326,12 @@ async function runWith(
     prefecture,
   };
 
-  const dedupeKey = `${pipeline.config.name}:${opts.force ? 'force' : 'normal'}:${code}`;
+  const cacheMode = opts.force
+    ? 'force'
+    : opts.forceParseAndExtract || opts.forceExtract
+      ? 'force-parse'
+      : 'normal';
+  const dedupeKey = [pipeline.config.name, cacheMode, code, cityName, prefecture ?? ''].join(':');
 
   // 各 subscriber は自分の req.signal が abort された時に「離脱」する。
   // 全員が離脱したら job 内 controller を abort し、pipeline を止める。
