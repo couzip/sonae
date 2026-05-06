@@ -171,12 +171,32 @@ CI runs all four on Node 20.x and 22.x.
 ## Environment variables
 
 ```env
-# LLM (structured extraction + recommendations)
+# Main LLM (OpenAI 互換 chat/completions)
 LLM_BASE_URL=http://localhost:1234/v1
 LLM_API_KEY=not-needed
 LLM_MODEL=gemma-4-e4b-it@q4_k_s
 
-# Vision/OCR (image → markdown)
+# 役割別 LLM の override (未設定なら LLM_* にフォールバック)
+# 推奨: toc / step_a に大きめモデル (例: 26B) を割り当てると章選定 / 災害種別列挙の精度が上がる
+# DISCOVERY_LLM_BASE_URL=        # PDF picker (1 LLM call、軽量モデルで OK)
+# DISCOVERY_LLM_API_KEY=
+# DISCOVERY_LLM_MODEL=
+# TOC_LLM_BASE_URL=              # 目次から被害想定章を選ぶ (1 call、章選定精度が重要)
+# TOC_LLM_API_KEY=
+# TOC_LLM_MODEL=
+# STEP_A_LLM_BASE_URL=           # 災害種別列挙 (1 call、網羅性重視)
+# STEP_A_LLM_API_KEY=
+# STEP_A_LLM_MODEL=
+# NEXT_ACTIONS_LLM_BASE_URL=     # 次の活動方針生成 (1 call)
+# NEXT_ACTIONS_LLM_API_KEY=
+# NEXT_ACTIONS_LLM_MODEL=
+
+# Reasoning (thinking) モード: off | low | medium | high
+# OpenRouter / LiteLLM proxy 経由の reasoning 対応モデルでのみ有効
+EXTRACT_STEP_A_REASONING_EFFORT=off
+EXTRACT_STEP_B_REASONING_EFFORT=off
+
+# Vision/OCR (image → markdown、LLM_* にフォールバックしない)
 OCR_BASE_URL=http://localhost:1234/v1
 OCR_API_KEY=not-needed
 OCR_MODEL=enginil/dots.mocr
@@ -187,6 +207,13 @@ BROWSER_USE_HEADLESS=false
 
 # Cache root override (default: ./cache)
 SONAE_CACHE_DIR=
+
+# Admin panel (/admin と /api/admin)
+# 未設定の場合 503 を返し管理画面は無効化される。
+# JWT_SECRET は最低 32 文字。`openssl rand -hex 32` で生成。
+ADMIN_USER=
+ADMIN_PASSWORD=
+ADMIN_JWT_SECRET=
 ```
 
 ---
