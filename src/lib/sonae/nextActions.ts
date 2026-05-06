@@ -123,14 +123,46 @@ ${candidates
 
 (3) encouragement
 completed の中の具体的な対策名を最低1つ言及して、これまでの取り組みを認める。
+**action_id (例: eq_furniture_securing) は内部識別子なので user-facing な文章には絶対書かない**。
+ラベル (例: "家具の固定") のみ使う。
 
 (4) long_term_considerations
 中長期で意識すべきこと 2-4個。
 
+ルール: encouragement / reasoning / headline / rationale 等の user-facing テキストには
+action_id (英数字とアンダースコアの ID) を含めない。括弧で並記もしない。
+ラベル (日本語の短い名前) のみ使う。
+
 出力は指定スキーマの JSON のみ。前置きや説明文は不要。`;
 
-  return await getLlm('next_actions').chatJson<NextActions>({
+  const result = await getLlm('next_actions').chatJson<NextActions>({
     prompt,
     responseFormat: NEXT_ACTIONS_JSON_SCHEMA,
   });
+  return sanitizeUserFacingIds(result);
+}
+
+// LLM が user-facing テキストに action_id (snake_case) を漏らした場合、ラベル並記
+// パターン (例: "家具の固定（eq_furniture_securing）") の括弧部だけを取り除く。
+const ID_PAREN_RE = /[（(]\s*[a-z][a-z0-9]*(?:_[a-z0-9]+)+\s*[）)]/g;
+function stripIds(text: string): string {
+  return text.replace(ID_PAREN_RE, '').replace(/\s+([、。])/g, '$1').trim();
+}
+export function sanitizeUserFacingIds(r: NextActions): NextActions {
+  return {
+    ...r,
+    encouragement: stripIds(r.encouragement ?? ''),
+    strategic_insights: r.strategic_insights.map((s) => ({
+      ...s,
+      headline: stripIds(s.headline),
+      rationale: stripIds(s.rationale),
+      user_factor: stripIds(s.user_factor),
+    })),
+    priority_actions: r.priority_actions.map((a) => ({
+      ...a,
+      reasoning: stripIds(a.reasoning),
+      effort_summary: stripIds(a.effort_summary),
+    })),
+    long_term_considerations: r.long_term_considerations.map((c) => stripIds(c)),
+  };
 }

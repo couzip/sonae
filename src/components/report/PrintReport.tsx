@@ -73,7 +73,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
     >
       <header style={{ borderBottom: '2px solid #0f172a', paddingBottom: 12, marginBottom: 20 }}>
         <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em' }}>
-          Sonae 防災コックピット 個別レポート
+          Sonae 個別レポート
         </div>
         <h1 style={{ fontSize: '22px', fontWeight: 700, margin: '4px 0 0' }}>
           {municipality.prefecture} {municipality.name}
