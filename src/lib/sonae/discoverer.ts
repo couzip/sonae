@@ -254,21 +254,21 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
    */
   private async extractTopResults(page: Page): Promise<string[]> {
     return await page.evaluate(() => {
-      const seen: Record<string, boolean> = {};
-      const out: string[] = [];
       const candidates: string[] = [];
-      const h3s = document.querySelectorAll('h3');
-      for (let i = 0; i < h3s.length; i++) {
-        const a = h3s[i].closest('a[href]') as HTMLAnchorElement | null;
+      for (const h3 of Array.from(document.querySelectorAll('h3'))) {
+        const a = h3.closest('a[href]') as HTMLAnchorElement | null;
         if (a) candidates.push(a.href);
       }
-      const fallback = document.querySelectorAll('.yuRUbf > a[href], .tF2Cxc a[href]');
-      for (let i = 0; i < fallback.length; i++) {
-        candidates.push((fallback[i] as HTMLAnchorElement).href);
+      for (const el of Array.from(
+        document.querySelectorAll('.yuRUbf > a[href], .tF2Cxc a[href]'),
+      )) {
+        candidates.push((el as HTMLAnchorElement).href);
       }
-      for (let i = 0; i < candidates.length; i++) {
-        const raw = candidates[i];
-        if (!raw || seen[raw]) continue;
+
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const raw of candidates) {
+        if (!raw || seen.has(raw)) continue;
         try {
           const u = new URL(raw, 'https://www.google.com/');
           if (
@@ -279,7 +279,7 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
             continue;
           }
           if (u.protocol !== 'http:' && u.protocol !== 'https:') continue;
-          seen[raw] = true;
+          seen.add(raw);
           out.push(u.href);
         } catch {
           /* skip invalid */
