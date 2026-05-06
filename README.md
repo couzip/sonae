@@ -7,140 +7,123 @@
 
 ## Overview
 
-Sonae is a submission to **The Gemma 4 Good Hackathon**
-(Kaggle × Google DeepMind, 2026) in the **Global Resilience** track.
-
-It is a Next.js + TypeScript app that resolves a Japanese municipality from
-a GPS coordinate, address, or map click, downloads that city's official
-*regional disaster plan* PDF, runs OCR on the expected-damage section with a
-multimodal small LLM, and has Gemma 4 produce **individually-tailored
-countermeasure recommendations** based on the user's building age, household
-composition, and location.
+Sonae is a Next.js + TypeScript app that resolves a Japanese municipality
+from a GPS coordinate, address, or map click, downloads that city's
+official regional disaster plan PDF, OCRs the expected-damage section, and
+asks Gemma 4 to produce countermeasure recommendations adjusted to the
+user's building age, household composition, and location.
 
 | Item | Value |
 |---|---|
 | Track | Global Resilience |
 | Hackathon | [Kaggle: The Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon) |
 | Submission deadline | May 18, 2026 |
-| Models used | Gemma 4 4B (q4_k_s, local) + Gemma 4 26B-A4B (OpenRouter) + dots.mocr (vision OCR) |
-| Repository | this repo |
+| Models | Gemma 4 4B (local), Gemma 4 26B-A4B (precision roles), a vision model for OCR |
 | License | MIT |
 
 ---
 
 ## The Challenge
 
-Japan has **1,741 municipalities**, each publishing its own *regional disaster
-plan* as a 100–500 page PDF on its own website. Every plan contains an
-**expected-damage** chapter that lists, for that exact location: the design
-earthquake, the maximum tsunami / flood depth, the assumed wind speed,
-expected casualty counts, expected building collapses.
+Each of Japan's 1,741 municipalities publishes its own regional disaster
+plan as a 100–500 page PDF. Every plan contains an expected-damage chapter
+with the design earthquake, maximum tsunami / flood depth, assumed wind
+speed, expected casualty counts, and expected building collapses for that
+location.
 
-This is the most rigorous, location-specific risk information a resident can
-access. It is also functionally invisible: long PDFs, scattered URLs, no
-search index, table-of-contents structure that varies between cities, and
-many of them scanned-image PDFs with no text layer.
+The information exists, but residents rarely use it. The PDFs are long,
+their URLs are scattered, table-of-contents structure varies between
+cities, and many are scanned-image PDFs with no text layer.
 
-Residents end up relying on generic "have a 3-day stockpile" advice that
-ignores their building's age, their family composition, and the actual
-hazards their city faces. Stockpile alone won't help if the building
-collapses in the first 30 seconds — and the local plan often says so
-explicitly, in a chapter nobody reads.
+So residents fall back on generic "have a 3-day stockpile" advice that
+ignores their building age, family composition, and the actual hazards
+their city faces. Stockpile alone is no help if the building collapses in
+the first 30 seconds, and the local plan often says so explicitly in a
+chapter nobody reads.
 
-This problem fits the **Global Resilience** track: bridging the gap between
-authoritative public risk information and what residents can practically
-use, in a country where the next earthquake or typhoon is not hypothetical.
+The app sits in the Global Resilience track because it tries to close that
+gap between the published risk information and what residents can act on.
 
 ---
 
 ## Our Solution
 
-Sonae extracts each city's expected-damage section, normalizes it into a
-structured assessment, and lets Gemma 4 produce per-resident priority
-actions weighted by a three-tier defense model:
+Sonae extracts the expected-damage section, normalizes it into a typed
+assessment, and lets Gemma 4 produce per-resident priority actions
+weighted by a three-tier model:
 
-- **Tier 1 (defense)**: physical hardening — seismic retrofit, furniture
+- **Tier 1 (defense)**: physical hardening: seismic retrofit, furniture
   securing, seismic breakers, water-stop boards, roof lightening
 - **Tier 2 (preparation)**: hazard map awareness, evacuation triggers,
   family contact, warning subscriptions
 - **Tier 3 (post-event coping)**: water / food / portable toilet stockpile
 
-Tier 1 has the largest leverage on survival, and the prompt enforces at
-least one Tier 1 strategic insight per recommendation.
+The prompt requires at least one Tier 1 insight per recommendation set,
+because pre-event hardening has the largest effect on survival.
 
 ### Key Features
 
-- **One-tap municipality resolution** — GPS, address, or map click; designated-city wards (~150 wards across 20 cities) resolve to their parent city automatically
-- **Live PDF discovery and download** — Playwright-driven discovery for un-registered cities; direct URL short-circuit for the registered ones
-- **Multimodal OCR fallback** — scanned-image PDFs without a text layer are rendered to PNG and OCR'd page-by-page via a vision model
-- **Structured-output pipeline** — every LLM call is constrained by a JSON Schema (Zod-validated); no free-form parsing anywhere in the data path
-- **Map-reduce extraction** — Step A enumerates which of 23 disaster types the municipality faces; Step B extracts scenarios per type in parallel
-- **Five cache tiers with content-based invalidation** — re-runs are ~10 ms when the upstream PDF hasn't changed
-- **Source attribution** — every datum the user sees is linked to the official PDF page that produced it
-- **Privacy-first** — user profile lives in `localStorage`; only the recommendation call sees it
-- **No numerical scores** — Sonae shows facts, not a "preparedness rating"; numbers misread as "I'm safe enough"
-- **Admin panel** — `/admin` for operators to extend the registry, inspect cache, and run the full-page-OCR fallback path
+- One-tap municipality resolution: GPS, address, or map click. Designated-city wards (~150 wards across 20 cities) resolve to their parent city automatically.
+- Live PDF discovery: Playwright finds the plan for un-registered cities. Registered cities use the direct URL.
+- Multimodal OCR fallback for scanned-image PDFs.
+- Every pipeline LLM call returns Zod-validated structured output.
+- Map-reduce extraction: enumerate disaster types, then extract scenarios per type in parallel.
+- Five cache tiers with content-based invalidation; re-runs are ~10 ms when the upstream PDF hasn't changed.
+- Source attribution: every datum links to the official PDF page that produced it.
+- User profile lives in `localStorage`. Only the recommendation call sees it.
+- No numerical scores. The app shows facts and lets the user judge.
+- `/admin` panel for operators (registry editing, cache inspection, full-page OCR fallback).
 
 ---
 
 ## How We Used Gemma 4
 
-Gemma 4 sits on three axes of the pipeline.
-
 ### 1. Multimodal vision OCR
 
-Many municipal PDFs are scanned images with no text layer. The pipeline
-detects this in `parser.ts` and falls back to a vision pass: each page is
-rendered to PNG, sent to a vision model with an OCR prompt, and the resulting
-markdown is treated as the document body. The reference deployment uses
-`enginil/dots.mocr` for OCR via an OpenAI-compatible vision endpoint —
-Gemma 4's multimodal capability lets the same model family cover this step
-in deployments that prefer a single model.
+When a PDF has no text layer, the parser renders each page to PNG, sends
+it to a vision model, and uses the returned markdown as the document body.
+The reference deployment uses a dedicated OCR model, but Gemma 4's
+multimodal capability lets a single model family cover this step in
+deployments that prefer that.
 
-### 2. Structured output via JSON Schema
+### 2. Structured output (Zod schemas)
 
-Every LLM call in the pipeline is constrained by a JSON Schema
-(`src/lib/sonae/schemas.ts`, Zod-validated). Gemma 4's structured-output
-support is what lets a 4B-parameter local model reliably drive a production
-pipeline:
+Every LLM call in the pipeline is constrained by a Zod schema in
+`src/lib/sonae/schemas.ts`. Gemma 4's structured output is what lets a 4B
+model drive the pipeline reliably:
 
-- **Discovery**: pick the correct disaster-plan PDF from a list of candidate links (1 call)
-- **TOC selection**: pick the expected-damage chapter from the parsed table of contents (1 call)
-- **Step A (map)**: enumerate which of 23 disaster types this municipality faces (1 call)
-- **Step B (reduce)**: per disaster type, extract scenarios with name / scale / expected damage / source page (N parallel calls)
-- **Next actions**: generate priority actions with reasoning, urgency, and effort summary (1 call)
+- Discovery: pick the correct PDF from a candidate list (1 call)
+- TOC selection: pick the expected-damage chapter from the table of contents (1 call)
+- Step A: enumerate which of 23 disaster types this city faces (1 call)
+- Step B: for each detected type, extract scenarios in parallel
+- Next actions: priority actions with reasoning, urgency, and effort (1 call)
 
-### 3. Native function calling for agentic RAG (post-evaluation chat)
+### 3. Function calling (post-evaluation chat)
 
-After the pipeline produces an assessment, residents can ask follow-up
-questions in a chat panel on the results screen. The chat model receives
-five tools (Vercel AI SDK `tool()` definitions, OpenAI-compatible `tools`
-wire format) and chains them across multiple steps:
+After the pipeline finishes, the chat panel on the results screen exposes
+five tools to the model:
 
-- `list_disaster_types` — enumerate disasters detected for the municipality
-- `get_disaster_scenarios(disaster_type)` — pull scenarios from the cached assessment
-- `search_disaster_plan(keywords[])` — character-bigram retrieval over the OCR markdown of the disaster plan (no embeddings, no vector store)
+- `list_disaster_types` — what disasters the assessment found
+- `get_disaster_scenarios(disaster_type)` — scenarios for a given type
+- `search_disaster_plan(keywords[])` — character-bigram search over the OCR markdown
 - `list_countermeasures_for_disaster(disaster_type)` — filter the 74-item master
-- `lookup_countermeasure(id)` — fetch one countermeasure's why / how / references
+- `lookup_countermeasure(id)` — full record for one countermeasure
 
-Each user question runs through `streamText` with `stopWhen: stepCountIs(8)`,
-so Gemma 4 freely picks tools, sees results, and decides whether to call
-more before composing the final answer. The retrieval substrate is
-deliberately embedding-free: an offline-capable bigram score over chunked
-markdown plus structured lookups against typed sources. This keeps the
-deployment single-binary (LM Studio + LiteLLM proxy) with no vector DB
-dependency.
+`streamText` with `stopWhen: stepCountIs(8)` lets the model call tools,
+inspect results, and call more before answering. Retrieval is character
+bigrams over chunked markdown; there is no embedding model and no vector
+store. That's enough for the corpus size and keeps the deployment to
+LM Studio + LiteLLM proxy.
 
 ### 4. Role-based model routing
 
-A single resolver (`src/lib/sonae/llmRoles.ts`) picks a model per role:
-`main`, `discovery`, `toc`, `step_a`, `next_actions`, `chat`, `ocr`. Each
-role falls back to the main model if not overridden. The reference setup
-pairs a local Gemma 4 4B (LM Studio, fast and free) for the bulk of calls
-with a larger Gemma 4 26B-A4B (via OpenRouter / LiteLLM proxy) for the
-precision-critical TOC selection, Step A enumeration, and chat tool
-selection. Anyone can swap any role to any OpenAI-compatible endpoint via a
-single env-var triple — no code change.
+`src/lib/sonae/llmRoles.ts` resolves a model per role: `main`, `discovery`,
+`toc`, `step_a`, `next_actions`, `chat`, `ocr`. Each role falls back to
+`main` if not overridden. The reference setup uses Gemma 4 4B locally for
+most calls and Gemma 4 26B-A4B (via OpenRouter / LiteLLM proxy) for the
+precision-sensitive roles (TOC selection, Step A, chat tool selection).
+Per-role overrides are env vars; no code change is required to swap a
+provider.
 
 ---
 
@@ -148,19 +131,19 @@ single env-var triple — no code change.
 
 | Layer | Stack |
 |---|---|
-| LLM | Gemma 4 4B (LM Studio) for hot path · Gemma 4 26B-A4B (OpenRouter / LiteLLM) for precision tasks |
+| LLM | Gemma 4 4B locally; Gemma 4 26B-A4B via OpenRouter / LiteLLM proxy for precision roles |
 | LLM client | Vercel AI SDK (`@ai-sdk/openai-compatible` + `generateObject` / `generateText` / `streamText`) |
-| Chat / tools | Vercel AI SDK `tool()` + `useChat` + `DefaultChatTransport`, agentic loop via `stopWhen: stepCountIs` |
-| Vision OCR | dots.mocr (or any OpenAI-compatible vision endpoint) |
-| Frontend | Next.js 15 (App Router) · TypeScript · Tailwind · Zustand |
-| Mapping | MapLibre GL JS · GSI (Geospatial Information Authority of Japan) tiles |
-| Pipeline | Custom 4-stage Pipeline (Discoverer / Retriever / Parser / Extractor) with 5 cache tiers |
-| Retrieval | Character-bigram cosine over chunked OCR markdown (no embedding, no vector DB) |
-| PDF | pdfjs-dist · @napi-rs/canvas |
+| Chat / tools | Vercel AI SDK `tool()` + `useChat` + `DefaultChatTransport` |
+| Vision OCR | OpenAI-compatible vision endpoint (model in `.env.example`) |
+| Frontend | Next.js 15 (App Router), TypeScript, Tailwind, Zustand |
+| Mapping | MapLibre GL JS, GSI (Geospatial Information Authority of Japan) tiles |
+| Pipeline | Discoverer / Retriever / Parser / Extractor with cache layers |
+| Retrieval (chat) | Character-bigram score over chunked OCR markdown |
+| PDF | pdfjs-dist, @napi-rs/canvas |
 | Discovery | rebrowser-playwright + system Chrome |
-| Schemas | Zod (single source of truth — JSON Schema is derived by AI SDK) |
-| Reporting | html2canvas + jsPDF · react-markdown + remark-gfm (chat output) |
-| Tests | Vitest (163 tests across 25 files) · Prettier · ESLint · tsc strict |
+| Schemas | Zod (JSON Schema is derived by AI SDK) |
+| Reporting | html2canvas + jsPDF; react-markdown + remark-gfm for chat output |
+| Tests | Vitest, Prettier, ESLint, `tsc --noEmit` strict |
 
 ### Architecture
 
@@ -181,11 +164,11 @@ single env-var triple — no code change.
                                        (HTTP HEAD / etag / ...)
 ```
 
-The four interfaces in [`src/lib/core/types.ts`](src/lib/core/types.ts) are
-the entire public contract. The Sonae app is a reference implementation; the
-framework is reusable for medical PDFs, legal texts, educational curriculum,
-or anywhere else a small LLM needs to consolidate fragmented public sources.
-See [`docs/EXTENDING.md`](docs/EXTENDING.md) and
+The four interfaces in [`src/lib/core/types.ts`](src/lib/core/types.ts)
+form the public contract. The Sonae app is one implementation; the
+framework is reusable for medical PDFs, legal texts, educational
+curriculum, or other places a small LLM has to consolidate fragmented
+public sources. See [`docs/EXTENDING.md`](docs/EXTENDING.md) and
 [`examples/news-summarizer/`](examples/news-summarizer/).
 
 #### Cache tiers
@@ -195,14 +178,14 @@ Five tiers, content-based invalidation (no time TTL):
 | Tier | Path | Skipped if hit | Notes |
 |---|---|---|---|
 | 1. Result | `cache/municipalities/{code}.json` | Everything | ~10 ms re-run |
-| 2. Parsed | `cache/ocr/{code}.{md,meta.json}` | Discovery / Retrieval / Parser | OCR markdown is preserved long-term (RAG-ready) |
+| 2. Parsed | `cache/ocr/{code}.{md,meta.json}` | Discovery / Retrieval / Parser | OCR markdown kept long-term (RAG-ready) |
 | 3. Source | `cache/discovery/{code}.json` | Discovery only | The picked PDF target |
 | 4. Blob | `cache/pdfs/{code}.pdf` + `.meta.json` + `.http.json` | Retrieval only | HEAD-checked before reuse |
 | 5. Work | `cache/work/{code}_{ts}/` | (debug only) | toc.md, page PNGs, ocr_combined.md |
 
-Source freshness is checked with an HTTP HEAD on the PDF URL (`Last-Modified`
-/ `ETag` / `Content-Length`). On `'stale'` verdict the parsed/result tiers
-are invalidated cascade-style.
+Source freshness is checked with an HTTP HEAD on the PDF URL
+(`Last-Modified` / `ETag` / `Content-Length`). On a `'stale'` verdict the
+parsed and result tiers are invalidated cascade-style.
 
 Query parameters: `?force=1` (bypass all caches), `?force_ocr=1` (bypass
 parsed + result, keep upstream).
@@ -213,15 +196,16 @@ parsed + result, keep upstream).
 
 ### Prerequisites
 
-- Node.js 20+ (also tested on 22.x via CI)
-- An OpenAI-compatible LLM endpoint with these models loaded:
-  - **LLM**: `gemma-4-e4b-it@q4_k_s` (Gemma 4 4B, Q4_K_S quantization)
-  - **Vision/OCR**: `enginil/dots.mocr` (or compatible alternative)
+- Node.js 20+ (also tested on 22.x via CI).
+- An OpenAI-compatible LLM endpoint serving a small instruction-tuned LLM
+  (Gemma 4 4B class) and a vision model for OCR.
+- For the precision-sensitive roles (TOC selection, Step A, chat), a
+  larger model is recommended (Gemma 4 26B-A4B class via OpenRouter /
+  LiteLLM proxy works).
 
-LM Studio defaults work out of the box on `http://localhost:1234/v1`. For
-the precision-critical TOC and Step A roles, point them at any
-OpenAI-compatible endpoint serving Gemma 4 26B-A4B (e.g. OpenRouter via
-LiteLLM proxy).
+The exact model identifiers used in the reference deployment are in
+[`.env.example`](.env.example). Other OpenAI-compatible endpoints work; set
+the per-role env vars to whichever provider you use.
 
 ### Install and run
 
@@ -257,14 +241,17 @@ panel credentials, cache root).
 
 Demo flow:
 
-1. Pick a location — GPS, address autocomplete, or map click; building info can be entered in the side panel right there so cache hits never skip the input timing
-2. Watch the pipeline stream progress (Discovery → Retrieval → TOC → OCR → Extract) over Server-Sent Events
-3. Review the disaster grid (treemap of detected disaster types, scaled by severity)
-4. Drill into any disaster type to see scenarios and source-page citations
-5. Fill in household / lifestyle profile (stays in `localStorage`)
-6. Get individually-tailored priority actions with reasoning
-7. Ask follow-up questions in the chat panel — Gemma 4 picks among 5 RAG tools (plan search, scenario lookup, countermeasure lookup, …) and answers with citations
-8. Export a per-resident PDF report
+1. Pick a location (GPS, address autocomplete, or map click). The building
+   form is in the side panel, so a cache hit on later phases doesn't skip
+   the input opportunity.
+2. Watch the pipeline progress over SSE: Discovery → Retrieval → TOC →
+   OCR → Extract.
+3. Look at the disaster grid (treemap of detected disaster types).
+4. Drill into a disaster type for scenarios and source-page citations.
+5. Fill in household / lifestyle profile (kept in `localStorage`).
+6. Read the priority actions with reasoning.
+7. Ask follow-up questions in the chat panel.
+8. Export a per-resident PDF report.
 
 ---
 
@@ -272,33 +259,29 @@ Demo flow:
 
 ### Why this matters
 
-Sonae targets the gap between the rigorous risk information Japanese
-municipalities already publish and what residents can practically use.
+Japan's 1,741 municipalities already publish detailed risk information in
+their disaster plans. Sonae's role is to make that information usable for a
+resident in a few minutes:
 
-- **1,741 municipalities** in Japan, each with its own disaster-plan PDF —
-  Sonae's pipeline scales to all of them, with per-city caching and
-  content-based invalidation
-- **Wards of designated cities** (20 cities, ~150 wards) resolve to their
-  parent city automatically (`data/seirei_wards.json`), so a resident
-  searching for any ward reaches the parent city's plan with no manual
-  lookup
-- **Tier-1 first**: by enforcing physical-hardening recommendations as the
-  primary output, Sonae moves residents up the survival curve before the
-  event, where the leverage on outcomes is largest
-
-### Alignment with judging criteria
-
-| Criterion | How Sonae addresses it |
-|---|---|
-| **Impact & Vision** | Targets a well-defined survivor population (residents in 1,741 Japanese municipalities) with a measurable shift: from generic "stockpile" advice to per-resident Tier-1 hardening actions grounded in their city's own published risk |
-| **Video Pitch & Storytelling** | The cockpit UI is built to show the journey from coordinate → official PDF → expected-damage chapter → tailored action in under 90 seconds end-to-end |
-| **Technical Depth & Execution** | Reference-implementation framework with clean interface boundaries (`lib/core/` vs `lib/sonae/`), 163 tests across 25 files, role-based LLM routing, 5-tier cache, multimodal OCR fallback, structured output (Zod-derived) for the deterministic pipeline, native function calling tools for the agentic chat (no embeddings; bigram retrieval over OCR markdown), full TypeScript strict mode, no `any` types, CI on Node 20.x + 22.x |
+- The pipeline scales to all of them (per-city caching, content-based
+  invalidation).
+- Designated-city wards (~150 wards across 20 cities) resolve to their
+  parent city via `data/seirei_wards.json`, so residents searching for a
+  ward reach the parent city's plan automatically.
+- Recommendations are ordered to put physical hardening first, since
+  hardening has the largest effect on outcomes once an event happens.
 
 ### Limitations
 
-- **Discovery for un-registered cities**: when a municipality is missing from `municipalities.yaml` and has no direct `disaster_plan_url`, the pipeline falls back to a Playwright-driven Google search to locate the PDF. This works but is not a long-term solution; per-prefecture sitemap crawling or a paid search API is the upgrade path. Cities with a registry entry never hit this fallback.
-- **Model dependencies**: the reference deployment is pinned to `gemma-4-e4b-it@q4_k_s` and `enginil/dots.mocr`. Other OpenAI-compatible models work but may need prompt tuning for strict JSON Schema output.
-- **Prototype, not production**: this is a working prototype. **In an actual emergency, follow JMA / municipal authoritative information.**
+- Discovery for un-registered cities falls back to a Playwright-driven
+  Google search. It works, but per-prefecture sitemap crawling or a paid
+  search API is the upgrade path. Cities with a registry entry never hit
+  this fallback.
+- The reference deployment uses Gemma 4 4B locally and a vision model for
+  OCR (identifiers in `.env.example`). Other models work but may need
+  prompt tuning for strict JSON Schema output.
+- Prototype, not production. **In an actual emergency, follow JMA /
+  municipal authoritative information.**
 
 ---
 
@@ -318,7 +301,7 @@ src/
 │   │   ├── events.ts            ProgressEvent + EmitFn
 │   │   └── index.ts
 │   │
-│   ├── sonae/                # Disaster domain (reference implementation)
+│   ├── sonae/                # Disaster domain
 │   │   ├── discoverer.ts        municipality registry + Playwright Discovery
 │   │   ├── retriever.ts         PDF download with HTTP headers captured
 │   │   ├── parser.ts            TOC → LLM section pick → keyword scan → partial OCR
@@ -328,8 +311,8 @@ src/
 │   │   ├── municipality.ts      municipalities.yaml registry
 │   │   ├── nextActions.ts       LLM call for strategic insights + priority actions
 │   │   ├── chat.ts              5 RAG tools + system prompt for the post-evaluation chat
-│   │   ├── llmRoles.ts          role-based LLM resolver (main / discovery / toc / step_a / next_actions / chat / ocr)
-│   │   ├── schemas.ts           Zod schemas (single source of truth)
+│   │   ├── llmRoles.ts          role-based LLM resolver
+│   │   ├── schemas.ts           Zod schemas
 │   │   ├── types.ts
 │   │   └── index.ts
 │   │
@@ -371,7 +354,7 @@ examples/
 
 ### Adding a municipality
 
-`data/municipalities.yaml` is hand-curated. To add a city:
+`data/municipalities.yaml` is hand-curated:
 
 ```yaml
 - code: '<5-digit JIS code>'
@@ -381,14 +364,14 @@ examples/
   lat: <lat>
   lng: <lng>
   name_aliases: [<alternate spellings for fuzzy match>]
-  disaster_plan_url: <direct PDF URL — preferred over Discovery>
+  disaster_plan_url: <direct PDF URL>
   disaster_plan_label: <human label>
   disaster_plan_page_url: <citing source page>
 ```
 
-`disaster_plan_url` short-circuits the Playwright Discovery layer. Use it
-whenever you have a stable URL — faster, deterministic, and no Google
-search dependency.
+`disaster_plan_url` skips the Playwright Discovery layer. Use it whenever
+a stable URL is available (faster, deterministic, no Google search
+dependency).
 
 ---
 
@@ -397,8 +380,8 @@ search dependency.
 MIT — see [LICENSE](LICENSE).
 
 The framework parts in `src/lib/core/` are intended to be domain-agnostic;
-contributions that keep them domain-agnostic are welcome. Disaster-specific
-logic lives in `src/lib/sonae/`. See [CONTRIBUTING.md](CONTRIBUTING.md).
+disaster-specific logic lives in `src/lib/sonae/`. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Credits
 
