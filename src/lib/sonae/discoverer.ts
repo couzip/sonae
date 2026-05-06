@@ -27,16 +27,13 @@ function persistentProfileDir(): string {
 }
 
 import type { Discoverer, LlmClient, PipelineContext } from '@/lib/core';
-import { createLlmClient } from '@/lib/core';
 import { findByCode } from './municipality';
 import type { SonaeQuery, SonaeSource } from './types';
 
 type DiscoverCtx = PipelineContext<SonaeQuery>;
 
 interface DiscovererOptions {
-  llmBaseURL: string;
-  llmApiKey: string;
-  llmModel: string;
+  llm: LlmClient;
   /** Chromium headless モード。Google bot 検出回避のため visible 推奨。 */
   headless?: boolean;
 }
@@ -81,11 +78,7 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
   private readonly llm: LlmClient;
 
   constructor(private readonly opts: DiscovererOptions) {
-    this.llm = createLlmClient({
-      baseURL: opts.llmBaseURL,
-      apiKey: opts.llmApiKey,
-      model: opts.llmModel,
-    });
+    this.llm = opts.llm;
   }
 
   async discover(query: SonaeQuery, ctx: DiscoverCtx): Promise<SonaeSource> {

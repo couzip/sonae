@@ -1,12 +1,11 @@
 import { SonaeDiscoverer } from '../src/lib/sonae/discoverer';
+import { getLlm } from '../src/lib/sonae/llmRoles';
 import type { PipelineContext } from '../src/lib/core';
 import type { SonaeQuery } from '../src/lib/sonae/types';
 
 async function probeOne(code: string, name: string, prefecture: string) {
   const d = new SonaeDiscoverer({
-    llmBaseURL: process.env.DISCOVERY_LLM_BASE_URL ?? 'http://localhost:1234/v1',
-    llmApiKey: process.env.DISCOVERY_LLM_API_KEY ?? 'not-needed',
-    llmModel: process.env.DISCOVERY_LLM_MODEL ?? 'gemma-4-e4b-it@q4_k_s',
+    llm: getLlm('discovery'),
     headless: false,
   });
   const ctx: PipelineContext<SonaeQuery> = {

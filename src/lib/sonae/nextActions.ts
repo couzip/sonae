@@ -7,21 +7,9 @@
  * `strategic_insights` and `priority_actions` accordingly.
  */
 
-import { createLlmClient, type LlmClient } from '@/lib/core';
 import type { Countermeasure } from '@/lib/sonae/client/countermeasures-filter';
+import { getLlm } from './llmRoles';
 import { NEXT_ACTIONS_JSON_SCHEMA, type NextActions } from './schemas';
-
-let _llm: LlmClient | null = null;
-function getLlm(): LlmClient {
-  if (!_llm) {
-    _llm = createLlmClient({
-      baseURL: process.env.LLM_BASE_URL ?? 'http://localhost:1234/v1',
-      apiKey: process.env.LLM_API_KEY ?? 'not-needed',
-      model: process.env.LLM_MODEL ?? 'gemma-4-e4b-it@q4_k_s',
-    });
-  }
-  return _llm;
-}
 
 export interface NextActionsInput {
   location: { municipality_code: string; name: string };
@@ -139,7 +127,7 @@ completed の中の具体的な対策名を最低1つ言及して、これまで
 
 出力は指定スキーマの JSON のみ。前置きや説明文は不要。`;
 
-  return await getLlm().chatJson<NextActions>({
+  return await getLlm('next_actions').chatJson<NextActions>({
     prompt,
     responseFormat: NEXT_ACTIONS_JSON_SCHEMA,
   });

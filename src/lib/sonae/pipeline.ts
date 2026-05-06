@@ -18,11 +18,9 @@ import {
   Pipeline,
   TextFileCache,
   createHttpFreshness,
-  createLlmClient,
   type EmitFn,
   type Freshness,
   type HttpSourceMeta,
-  type LlmClient,
   type PipelineContext,
   type ProgressEvent as PipelineProgressEvent,
   type RunOptions,
@@ -177,64 +175,8 @@ type SonaePipeline = Pipeline<
 let _pipelineStrict: SonaePipeline | null = null;
 let _pipelineFullOcr: SonaePipeline | null = null;
 
-let _llm: LlmClient | null = null;
-let _ocr: LlmClient | null = null;
-let _tocLlm: LlmClient | null = null;
+import { getLlm } from './llmRoles';
 
-function getLlm(): LlmClient {
-  if (!_llm) {
-    _llm = createLlmClient({
-      baseURL: process.env.LLM_BASE_URL ?? 'http://localhost:1234/v1',
-      apiKey: process.env.LLM_API_KEY ?? 'not-needed',
-      model: process.env.LLM_MODEL ?? 'gemma-4-e4b-it@q4_k_s',
-    });
-  }
-  return _llm;
-}
-
-function getTocLlm(): LlmClient {
-  if (!_tocLlm) {
-    const base = process.env.TOC_LLM_BASE_URL ?? process.env.LLM_BASE_URL;
-    if (!base) return getLlm();
-    _tocLlm = createLlmClient({
-      baseURL: base,
-      apiKey: process.env.TOC_LLM_API_KEY ?? process.env.LLM_API_KEY ?? 'not-needed',
-      model:
-        process.env.TOC_LLM_MODEL ??
-        process.env.LLM_MODEL ??
-        'gemma-4-e4b-it@q4_k_s',
-    });
-  }
-  return _tocLlm;
-}
-
-let _stepALlm: LlmClient | null = null;
-function getStepALlm(): LlmClient {
-  if (!_stepALlm) {
-    const base = process.env.STEP_A_LLM_BASE_URL ?? process.env.LLM_BASE_URL;
-    if (!base) return getLlm();
-    _stepALlm = createLlmClient({
-      baseURL: base,
-      apiKey: process.env.STEP_A_LLM_API_KEY ?? process.env.LLM_API_KEY ?? 'not-needed',
-      model:
-        process.env.STEP_A_LLM_MODEL ??
-        process.env.LLM_MODEL ??
-        'gemma-4-e4b-it@q4_k_s',
-    });
-  }
-  return _stepALlm;
-}
-
-function getOcr(): LlmClient {
-  if (!_ocr) {
-    _ocr = createLlmClient({
-      baseURL: process.env.OCR_BASE_URL ?? 'http://localhost:1234/v1',
-      apiKey: process.env.OCR_API_KEY ?? 'not-needed',
-      model: process.env.OCR_MODEL ?? 'enginil/dots.mocr',
-    });
-  }
-  return _ocr;
-}
 
 function buildPipeline(mode: 'strict' | 'full_ocr_fallback'): SonaePipeline {
   const root = cacheRoot();
@@ -257,16 +199,7 @@ function buildPipeline(mode: 'strict' | 'full_ocr_fallback'): SonaePipeline {
   });
 
   const discoverer = new SonaeDiscoverer({
-    llmBaseURL:
-      process.env.DISCOVERY_LLM_BASE_URL ??
-      process.env.LLM_BASE_URL ??
-      'http://localhost:1234/v1',
-    llmApiKey:
-      process.env.DISCOVERY_LLM_API_KEY ?? process.env.LLM_API_KEY ?? 'not-needed',
-    llmModel:
-      process.env.DISCOVERY_LLM_MODEL ??
-      process.env.LLM_MODEL ??
-      'gemma-4-e4b-it@q4_k_s',
+    llm: getLlm('discovery'),
     headless: process.env.BROWSER_USE_HEADLESS === 'true',
   });
 
@@ -275,9 +208,9 @@ function buildPipeline(mode: 'strict' | 'full_ocr_fallback'): SonaePipeline {
   });
 
   const parser = new SonaeTocOcrParser({
-    llm: getLlm(),
-    tocLlm: getTocLlm(),
-    ocr: getOcr(),
+    llm: getLlm('main'),
+    tocLlm: getLlm('toc'),
+    ocr: getLlm('ocr'),
     workDirFor: (code, sha256) => {
       const dir = join(root, 'work', `${code}_${sha256.slice(0, 12)}_${Date.now()}`);
       mkdirSync(dir, { recursive: true });
@@ -287,8 +220,8 @@ function buildPipeline(mode: 'strict' | 'full_ocr_fallback'): SonaePipeline {
   });
 
   const extractor = new SonaeMapReduceExtractor({
-    llm: getLlm(),
-    stepALlm: getStepALlm(),
+    llm: getLlm('main'),
+    stepALlm: getLlm('step_a'),
   });
 
   return new Pipeline<
