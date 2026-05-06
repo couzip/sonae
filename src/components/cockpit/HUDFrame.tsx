@@ -8,13 +8,7 @@ interface HUDFrameProps {
   bodyClassName?: string;
 }
 
-export function HUDFrame({
-  children,
-  title,
-  rightSlot,
-  className,
-  bodyClassName,
-}: HUDFrameProps) {
+export function HUDFrame({ children, title, rightSlot, className, bodyClassName }: HUDFrameProps) {
   return (
     <div
       className={cn(

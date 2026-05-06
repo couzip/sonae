@@ -13,7 +13,7 @@
   prefecture_code: '14'
   lat: 35.4437
   lng: 139.6380
-  name_aliases: [ 横浜市, よこはま市, ヨコハマ市, Yokohama ]
+  name_aliases: [横浜市, よこはま市, ヨコハマ市, Yokohama]
 
 - code: '14130'
   name: 川崎市
@@ -21,7 +21,7 @@
   prefecture_code: '14'
   lat: 35.5308
   lng: 139.7029
-  name_aliases: [ 川崎市, かわさき市, カワサキ市, Kawasaki ]
+  name_aliases: [川崎市, かわさき市, カワサキ市, Kawasaki]
 
 - code: '14150'
   name: 相模原市
@@ -29,7 +29,7 @@
   prefecture_code: '14'
   lat: 35.5713
   lng: 139.3733
-  name_aliases: [ 相模原市, さがみはら市 ]
+  name_aliases: [相模原市, さがみはら市]
 
 # 東京都 23区
 - code: '13101'
@@ -38,7 +38,7 @@
   prefecture_code: '13'
   lat: 35.6940
   lng: 139.7536
-  name_aliases: [ 千代田区 ]
+  name_aliases: [千代田区]
 
 - code: '13102'
   name: 中央区
@@ -46,7 +46,7 @@
   prefecture_code: '13'
   lat: 35.6706
   lng: 139.7720
-  name_aliases: [ 中央区(東京) ]
+  name_aliases: [中央区(東京)]
 
 - code: '13103'
   name: 港区
@@ -54,7 +54,7 @@
   prefecture_code: '13'
   lat: 35.6581
   lng: 139.7414
-  name_aliases: [ 港区(東京) ]
+  name_aliases: [港区(東京)]
 
 - code: '13104'
   name: 新宿区
@@ -62,7 +62,7 @@
   prefecture_code: '13'
   lat: 35.6938
   lng: 139.7036
-  name_aliases: [ 新宿区, しんじゅく区 ]
+  name_aliases: [新宿区, しんじゅく区]
 
 - code: '13113'
   name: 渋谷区
@@ -70,7 +70,7 @@
   prefecture_code: '13'
   lat: 35.6640
   lng: 139.6982
-  name_aliases: [ 渋谷区, しぶや区 ]
+  name_aliases: [渋谷区, しぶや区]
 
 # 千葉県
 - code: '12100'
@@ -79,7 +79,7 @@
   prefecture_code: '12'
   lat: 35.6072
   lng: 140.1063
-  name_aliases: [ 千葉市, ちば市 ]
+  name_aliases: [千葉市, ちば市]
 
 # 埼玉県
 - code: '11100'
@@ -88,7 +88,7 @@
   prefecture_code: '11'
   lat: 35.8617
   lng: 139.6455
-  name_aliases: [ さいたま市, サイタマ市 ]
+  name_aliases: [さいたま市, サイタマ市]
 
 # 大阪府
 - code: '27100'
@@ -97,7 +97,7 @@
   prefecture_code: '27'
   lat: 34.6937
   lng: 135.5023
-  name_aliases: [ 大阪市, おおさか市 ]
+  name_aliases: [大阪市, おおさか市]
 
 # 静岡県 — 巨大地震想定エリア
 - code: '22100'
@@ -106,7 +106,7 @@
   prefecture_code: '22'
   lat: 34.9756
   lng: 138.3829
-  name_aliases: [ 静岡市, しずおか市 ]
+  name_aliases: [静岡市, しずおか市]
 
 # 熊本県 — 熊本地震実績あり
 - code: '43100'
@@ -115,15 +115,15 @@
   prefecture_code: '43'
   lat: 32.7898
   lng: 130.7417
-  name_aliases: [ 熊本市, くまもと市 ]
+  name_aliases: [熊本市, くまもと市]
 # 徳島県
-- code: "36201"
+- code: '36201'
   name: 徳島市
   prefecture: 徳島県
-  prefecture_code: "36"
+  prefecture_code: '36'
   lat: 34.070091
   lng: 134.554703
-  name_aliases: [ 徳島市 ]
+  name_aliases: [徳島市]
 
 # 政令指定都市 親市 (区→親市フォールバック用)
 - code: '01100'
@@ -132,7 +132,7 @@
   prefecture_code: '01'
   lat: 43.0617
   lng: 141.3544
-  name_aliases: [ 札幌市, さっぽろ市 ]
+  name_aliases: [札幌市, さっぽろ市]
 
 - code: '04100'
   name: 仙台市
@@ -140,7 +140,7 @@
   prefecture_code: '04'
   lat: 38.2682
   lng: 140.8694
-  name_aliases: [ 仙台市, せんだい市 ]
+  name_aliases: [仙台市, せんだい市]
 
 - code: '15100'
   name: 新潟市
@@ -148,7 +148,7 @@
   prefecture_code: '15'
   lat: 37.9026
   lng: 139.0234
-  name_aliases: [ 新潟市, にいがた市 ]
+  name_aliases: [新潟市, にいがた市]
 
 - code: '22130'
   name: 浜松市
@@ -156,7 +156,7 @@
   prefecture_code: '22'
   lat: 34.7108
   lng: 137.7261
-  name_aliases: [ 浜松市, はままつ市 ]
+  name_aliases: [浜松市, はままつ市]
 
 - code: '23100'
   name: 名古屋市
@@ -164,7 +164,7 @@
   prefecture_code: '23'
   lat: 35.1815
   lng: 136.9066
-  name_aliases: [ 名古屋市, なごや市 ]
+  name_aliases: [名古屋市, なごや市]
 
 - code: '26100'
   name: 京都市
@@ -172,7 +172,7 @@
   prefecture_code: '26'
   lat: 35.0116
   lng: 135.7681
-  name_aliases: [ 京都市, きょうと市 ]
+  name_aliases: [京都市, きょうと市]
 
 - code: '27140'
   name: 堺市
@@ -180,7 +180,7 @@
   prefecture_code: '27'
   lat: 34.5733
   lng: 135.4830
-  name_aliases: [ 堺市, さかい市 ]
+  name_aliases: [堺市, さかい市]
 
 - code: '28100'
   name: 神戸市
@@ -188,7 +188,7 @@
   prefecture_code: '28'
   lat: 34.6901
   lng: 135.1955
-  name_aliases: [ 神戸市, こうべ市 ]
+  name_aliases: [神戸市, こうべ市]
 
 - code: '33100'
   name: 岡山市
@@ -196,7 +196,7 @@
   prefecture_code: '33'
   lat: 34.6618
   lng: 133.9344
-  name_aliases: [ 岡山市, おかやま市 ]
+  name_aliases: [岡山市, おかやま市]
 
 - code: '34100'
   name: 広島市
@@ -204,7 +204,7 @@
   prefecture_code: '34'
   lat: 34.3853
   lng: 132.4553
-  name_aliases: [ 広島市, ひろしま市 ]
+  name_aliases: [広島市, ひろしま市]
 
 - code: '40100'
   name: 北九州市
@@ -212,7 +212,7 @@
   prefecture_code: '40'
   lat: 33.8835
   lng: 130.8752
-  name_aliases: [ 北九州市, きたきゅうしゅう市 ]
+  name_aliases: [北九州市, きたきゅうしゅう市]
 
 - code: '40130'
   name: 福岡市
@@ -220,4 +220,4 @@
   prefecture_code: '40'
   lat: 33.5904
   lng: 130.4017
-  name_aliases: [ 福岡市, ふくおか市 ]
+  name_aliases: [福岡市, ふくおか市]

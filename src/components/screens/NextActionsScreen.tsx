@@ -8,6 +8,7 @@ import { useChecklistStore } from '@/stores/useChecklistStore';
 import { useProfileStore } from '@/stores/useProfileStore';
 import { useRecommendationsStore } from '@/stores/useRecommendationsStore';
 import { HUDFrame, HairlineDivider } from '@/components/cockpit';
+import { QueryBar } from '@/components/chat/QueryBar';
 import { PriorityActionCard } from '@/components/recommendations/PriorityActionCard';
 import { StrategicInsightCard } from '@/components/recommendations/StrategicInsightCard';
 import { SaveReportPdfButton } from '@/components/report/SaveReportPdfButton';
@@ -115,9 +116,7 @@ export function NextActionsScreen() {
           <section>
             <header className="mb-2">
               <h3 className="font-sans text-base text-ink">計画の核心</h3>
-              <p className="text-xs text-ink-mute mt-0.5">
-                あなたの状況で、特に意識すべき視点です
-              </p>
+              <p className="text-xs text-ink-mute mt-0.5">あなたの状況で、特に意識すべき視点です</p>
             </header>
             <div className="flex flex-col gap-2">
               {result.strategic_insights.map((it, i) => (
@@ -160,11 +159,7 @@ export function NextActionsScreen() {
                   key={s}
                   className={[
                     'flex items-center gap-2 transition-colors',
-                    i < stageIdx
-                      ? 'text-ink-mute'
-                      : i === stageIdx
-                        ? 'text-ink'
-                        : 'text-ink-dim',
+                    i < stageIdx ? 'text-ink-mute' : i === stageIdx ? 'text-ink' : 'text-ink-dim',
                   ].join(' ')}
                 >
                   <span
@@ -229,6 +224,13 @@ export function NextActionsScreen() {
                 ))}
               </ul>
             </section>
+          </>
+        )}
+
+        {result && municipality && (
+          <>
+            <HairlineDivider variant="dashed" />
+            <QueryBar municipalityCode={municipality.code} municipalityName={municipality.name} />
           </>
         )}
 

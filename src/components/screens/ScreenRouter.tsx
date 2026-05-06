@@ -29,10 +29,7 @@ export function ScreenRouter() {
       setPhase('grid');
       return;
     }
-    if (
-      (phase === 'research' || phase === 'grid' || phase === 'actions') &&
-      !municipality
-    ) {
+    if ((phase === 'research' || phase === 'grid' || phase === 'actions') && !municipality) {
       setPhase('pick');
       return;
     }

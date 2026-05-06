@@ -52,13 +52,7 @@ const ALL_PHASES: Phase[] = [
 ];
 
 // キャッシュ即返答時、UI 上で各 step を順に再生して「ちゃんと調べた」感を出す。
-const CACHE_REPLAY_PHASES: Phase[] = [
-  'discovery',
-  'retrieval',
-  'toc',
-  'ocr_section',
-  'extract',
-];
+const CACHE_REPLAY_PHASES: Phase[] = ['discovery', 'retrieval', 'toc', 'ocr_section', 'extract'];
 const CACHE_REPLAY_STEP_MS = 400;
 
 function initialPhases(): Record<Phase, PhaseStatus> {

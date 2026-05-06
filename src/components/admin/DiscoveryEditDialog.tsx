@@ -149,7 +149,9 @@ export function DiscoveryEditDialog({ code, open, onClose }: Props) {
               />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-xs text-ink-mute">セクションヒント (任意、デフォルト: 被害想定)</span>
+              <span className="text-xs text-ink-mute">
+                セクションヒント (任意、デフォルト: 被害想定)
+              </span>
               <input
                 type="text"
                 value={v.section_hint ?? ''}

@@ -6,6 +6,7 @@
  */
 
 import { join, resolve } from 'node:path';
+import { z } from 'zod';
 import {
   JsonFileCache,
   Pipeline,
@@ -82,27 +83,11 @@ class HtmlPlainTextParser implements Parser<NewsBlob, NewsParsed> {
   }
 }
 
-const SUMMARY_SCHEMA = {
-  type: 'json_schema',
-  json_schema: {
-    name: 'NewsSummary',
-    strict: true,
-    schema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        title: { type: 'string', description: 'Refined article title' },
-        summary: { type: 'string', description: '2-3 sentence neutral summary' },
-        key_points: {
-          type: 'array',
-          items: { type: 'string' },
-          description: '3-7 bullet-style key takeaways',
-        },
-      },
-      required: ['title', 'summary', 'key_points'],
-    },
-  },
-} as const;
+const SummarySchema = z.object({
+  title: z.string().describe('Refined article title'),
+  summary: z.string().describe('2-3 sentence neutral summary'),
+  key_points: z.array(z.string()).describe('3-7 bullet-style key takeaways'),
+});
 
 class LlmNewsSummariser implements Extractor<NewsParsed, NewsResult> {
   constructor(
@@ -111,11 +96,7 @@ class LlmNewsSummariser implements Extractor<NewsParsed, NewsResult> {
   ) {}
 
   async extract(parsed: NewsParsed): Promise<NewsResult> {
-    const out = await this.llm.chatJson<{
-      title: string;
-      summary: string;
-      key_points: string[];
-    }>({
+    const out = await this.llm.chatJson({
       prompt: `Summarise the following article in neutral prose.
 3-7 short bullet "key_points". Refine the title if needed.
 
@@ -123,7 +104,8 @@ class LlmNewsSummariser implements Extractor<NewsParsed, NewsResult> {
 ${parsed.title}
 --- BODY (truncated to 30000 chars) ---
 ${parsed.text.slice(0, 30_000)}`,
-      responseFormat: SUMMARY_SCHEMA,
+      schema: SummarySchema,
+      schemaName: 'NewsSummary',
       maxTokens: 1024,
     });
     return { ...out, source_url: this.currentUrl() };

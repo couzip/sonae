@@ -44,10 +44,7 @@ function statSafe(p: string): CacheFileInfo {
   }
 }
 
-function inspectLayer(
-  layer: CacheLayerStatus['layer'],
-  code: string,
-): CacheLayerStatus {
+function inspectLayer(layer: CacheLayerStatus['layer'], code: string): CacheLayerStatus {
   const root = cacheRoot();
   const dir = join(root, layer === 'pdf' ? 'pdfs' : layer === 'result' ? 'municipalities' : layer);
 

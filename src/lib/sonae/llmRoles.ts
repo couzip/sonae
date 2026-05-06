@@ -8,7 +8,7 @@
 
 import { createLlmClient, type LlmClient } from '@/lib/core';
 
-export type LlmRole = 'main' | 'discovery' | 'toc' | 'step_a' | 'ocr' | 'next_actions';
+export type LlmRole = 'main' | 'discovery' | 'toc' | 'step_a' | 'ocr' | 'next_actions' | 'chat';
 
 interface RoleConfig {
   baseEnv: string;
@@ -54,6 +54,13 @@ const ROLES: Record<LlmRole, RoleConfig> = {
     fallbackToMain: true,
     defaultModel: 'gemma-4-e4b-it@q4_k_s',
   },
+  chat: {
+    baseEnv: 'CHAT_LLM_BASE_URL',
+    keyEnv: 'CHAT_LLM_API_KEY',
+    modelEnv: 'CHAT_LLM_MODEL',
+    fallbackToMain: true,
+    defaultModel: 'gemma-4-e4b-it@q4_k_s',
+  },
   ocr: {
     baseEnv: 'OCR_BASE_URL',
     keyEnv: 'OCR_API_KEY',
@@ -78,10 +85,7 @@ export function getLlm(role: LlmRole = 'main'): LlmClient {
       process.env[cfg.baseEnv] ??
       (fb ? process.env[main.baseEnv] : undefined) ??
       'http://localhost:1234/v1',
-    apiKey:
-      process.env[cfg.keyEnv] ??
-      (fb ? process.env[main.keyEnv] : undefined) ??
-      'not-needed',
+    apiKey: process.env[cfg.keyEnv] ?? (fb ? process.env[main.keyEnv] : undefined) ?? 'not-needed',
     model:
       process.env[cfg.modelEnv] ??
       (fb ? process.env[main.modelEnv] : undefined) ??

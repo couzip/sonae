@@ -25,7 +25,7 @@ export type {
   StrategicInsight,
 } from './schemas';
 
-export { DISASTER_TYPE_ENUM, NEXT_ACTIONS_JSON_SCHEMA, NextActionsSchema } from './schemas';
+export { DISASTER_TYPE_ENUM, NextActionsSchema } from './schemas';
 
 export type { SonaeBlob, SonaeParsed, SonaeQuery, SonaeSource } from './types';
 

@@ -21,10 +21,7 @@ afterEach(() => {
 function seedResult(code: string, city: string): void {
   const dir = join(tmp, 'municipalities');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(
-    join(dir, `${code}.json`),
-    JSON.stringify({ city, by_disaster_type: [] }),
-  );
+  writeFileSync(join(dir, `${code}.json`), JSON.stringify({ city, by_disaster_type: [] }));
 }
 
 describe('listAdminMunicipalities', () => {

@@ -6,11 +6,7 @@
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
-import {
-  ADMIN_COOKIE_NAME,
-  readAdminEnv,
-  verifySessionToken,
-} from '@/lib/sonae/admin/auth';
+import { ADMIN_COOKIE_NAME, readAdminEnv, verifySessionToken } from '@/lib/sonae/admin/auth';
 
 export const config = {
   matcher: ['/admin/:path*', '/api/admin/:path*'],

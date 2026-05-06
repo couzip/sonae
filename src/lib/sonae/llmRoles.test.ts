@@ -8,6 +8,9 @@ describe('getLlm role-based config', () => {
     'TOC_LLM_BASE_URL',
     'TOC_LLM_API_KEY',
     'TOC_LLM_MODEL',
+    'CHAT_LLM_BASE_URL',
+    'CHAT_LLM_API_KEY',
+    'CHAT_LLM_MODEL',
     'OCR_BASE_URL',
     'OCR_API_KEY',
     'OCR_MODEL',
@@ -59,6 +62,31 @@ describe('getLlm role-based config', () => {
     expect(c.config.baseURL).toBe('http://toc.test/v1');
     expect(c.config.apiKey).toBe('toc-key');
     expect(c.config.model).toBe('toc-model');
+  });
+
+  it('chat role は CHAT_LLM_* が指定されればそれを使う', async () => {
+    process.env.LLM_BASE_URL = 'http://main.test/v1';
+    process.env.CHAT_LLM_BASE_URL = 'http://chat.test/v1';
+    process.env.CHAT_LLM_API_KEY = 'chat-key';
+    process.env.CHAT_LLM_MODEL = 'gemma-4-26b-a4b-it';
+    const { getLlm } = await import('./llmRoles');
+    const c = getLlm('chat');
+    expect(c.config.baseURL).toBe('http://chat.test/v1');
+    expect(c.config.apiKey).toBe('chat-key');
+    expect(c.config.model).toBe('gemma-4-26b-a4b-it');
+  });
+
+  it('chat role は CHAT_LLM_* が無ければ LLM_* にフォールバック', async () => {
+    process.env.LLM_BASE_URL = 'http://main.test/v1';
+    process.env.LLM_API_KEY = 'main-key';
+    process.env.LLM_MODEL = 'main-model';
+    delete process.env.CHAT_LLM_BASE_URL;
+    delete process.env.CHAT_LLM_API_KEY;
+    delete process.env.CHAT_LLM_MODEL;
+    const { getLlm } = await import('./llmRoles');
+    const c = getLlm('chat');
+    expect(c.config.baseURL).toBe('http://main.test/v1');
+    expect(c.config.model).toBe('main-model');
   });
 
   it('ocr role は LLM_* にフォールバックしない (独立)', async () => {

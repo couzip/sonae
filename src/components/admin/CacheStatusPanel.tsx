@@ -34,7 +34,11 @@ interface Props {
 type Layer = 'discovery' | 'pdf' | 'ocr' | 'result' | 'work';
 
 const LAYER_META: Record<Layer, { label: string; Icon: typeof Globe; description: string }> = {
-  discovery: { label: 'Discovery', Icon: Globe, description: 'PDF URL の探索結果 (編集で URL 上書き可)' },
+  discovery: {
+    label: 'Discovery',
+    Icon: Globe,
+    description: 'PDF URL の探索結果 (編集で URL 上書き可)',
+  },
   pdf: { label: 'PDF', Icon: FileText, description: 'ダウンロード済 PDF とメタデータ' },
   ocr: { label: 'OCR', Icon: Type, description: 'OCR 抽出 markdown' },
   result: { label: '解析結果', Icon: Database, description: '最終 Disaster Assessment' },
@@ -245,9 +249,7 @@ export function CacheStatusPanel({
       <TextCacheEditDialog
         title="OCR markdown を編集"
         endpoint={`/api/admin/cache/${encodeURIComponent(code)}/ocr`}
-        extract={(d: unknown) =>
-          (d as { markdown?: string } | null | undefined)?.markdown ?? ''
-        }
+        extract={(d: unknown) => (d as { markdown?: string } | null | undefined)?.markdown ?? ''}
         build={(text) => ({ markdown: text })}
         notice="保存すると解析結果キャッシュも自動で削除されます (再生成が必要)。"
         open={ocrEditOpen}

@@ -69,7 +69,10 @@ export interface HeartRailsLocation {
   lng: number;
 }
 
-export async function heartRailsReverse(lat: number, lng: number): Promise<HeartRailsLocation | null> {
+export async function heartRailsReverse(
+  lat: number,
+  lng: number,
+): Promise<HeartRailsLocation | null> {
   const url = `https://geoapi.heartrails.com/api/json?method=searchByGeoLocation&x=${lng}&y=${lat}`;
   const r = await fetch(url, {
     headers: { 'User-Agent': 'Sonae/0.1 (https://github.com/couzip/bousai-copilot)' },

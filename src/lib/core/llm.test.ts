@@ -1,145 +1,148 @@
 /**
  * Tests for the OpenAI-compatible LLM client.
  *
- * The client speaks the chat-completions wire protocol; we mock global `fetch`
- * to verify the shape of outgoing requests and the parsing of responses.
+ * The client is a thin facade over the Vercel AI SDK. We exercise it end-to-end
+ * by stubbing the provider's `fetch` so that tests run hermetically without a
+ * live LLM and verify both the wire format we send and the parsing of replies.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createLlmClient, type LlmClient } from './llm';
+import { z } from 'zod';
+import { createLlmClient } from './llm';
+
+interface CapturedRequest {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body: Record<string, unknown>;
+}
+
+function makeJsonResponse(content: string): Response {
+  return new Response(
+    JSON.stringify({
+      id: 'test',
+      object: 'chat.completion',
+      created: 0,
+      model: 'm',
+      choices: [{ index: 0, message: { role: 'assistant', content }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
+let captured: CapturedRequest;
+
+function stubFetch(content: string): typeof globalThis.fetch {
+  return vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+    const req = init ?? {};
+    captured = {
+      url: String(input),
+      method: req.method ?? 'GET',
+      headers: Object.fromEntries(new Headers(req.headers).entries()),
+      body: typeof req.body === 'string' ? JSON.parse(req.body) : {},
+    };
+    return makeJsonResponse(content);
+  }) as unknown as typeof globalThis.fetch;
+}
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
-function makeJsonResponse(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  });
-}
+afterEach(() => {
+  globalThis.fetch = ORIGINAL_FETCH;
+  vi.restoreAllMocks();
+});
 
 describe('LlmClient.chatJson', () => {
-  let client: LlmClient;
-
   beforeEach(() => {
-    client = createLlmClient({
-      baseURL: 'http://test.local/v1',
-      apiKey: 'k',
-      model: 'm',
-      timeoutMs: 1000,
-    });
+    captured = { url: '', method: '', headers: {}, body: {} };
   });
 
-  afterEach(() => {
-    globalThis.fetch = ORIGINAL_FETCH;
-    vi.restoreAllMocks();
-  });
+  it('sends model + prompt + response_format and returns the parsed object', async () => {
+    globalThis.fetch = stubFetch('{"ok":true,"n":42}');
+    const client = createLlmClient({ baseURL: 'http://test.local/v1', apiKey: 'k', model: 'm' });
 
-  it('sends model, messages, response_format and parses content', async () => {
-    const captured: { url: string; body: any; headers: any } = {
-      url: '',
-      body: null,
-      headers: {},
-    };
-    globalThis.fetch = vi.fn(async (input: any, init: any) => {
-      captured.url = String(input);
-      captured.body = JSON.parse(init.body);
-      captured.headers = init.headers;
-      return makeJsonResponse({
-        choices: [{ message: { content: '{"ok":true,"n":42}' } }],
-      });
-    }) as any;
-
-    const out = await client.chatJson<{ ok: boolean; n: number }>({
+    const out = await client.chatJson({
       prompt: 'hi',
-      responseFormat: { type: 'json_schema', name: 'X' },
-      maxTokens: 256,
-      temperature: 0.5,
+      schema: z.object({ ok: z.boolean(), n: z.number() }),
+      schemaName: 'X',
     });
 
     expect(out).toEqual({ ok: true, n: 42 });
     expect(captured.url).toBe('http://test.local/v1/chat/completions');
+    expect(captured.method).toBe('POST');
+    expect(captured.headers.authorization).toBe('Bearer k');
     expect(captured.body.model).toBe('m');
-    expect(captured.body.messages[0].content).toBe('hi');
-    expect(captured.body.temperature).toBe(0.5);
-    expect(captured.body.max_tokens).toBe(256);
-    expect(captured.headers.Authorization).toBe('Bearer k');
+    const messages = captured.body.messages as Array<{ role: string; content: string }>;
+    expect(messages[0]?.role).toBe('user');
+    expect(messages[0]?.content).toContain('hi');
+    const responseFormat = captured.body.response_format as { type?: string };
+    expect(responseFormat?.type).toBe('json_schema');
   });
 
-  it('throws on non-OK HTTP', async () => {
-    globalThis.fetch = vi.fn(async () => new Response('oops', { status: 500 })) as any;
+  it('throws on non-retryable HTTP error (401)', async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: { message: 'invalid api key' } }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    ) as unknown as typeof globalThis.fetch;
+    const client = createLlmClient({ baseURL: 'http://test.local/v1', apiKey: 'k', model: 'm' });
 
-    await expect(client.chatJson({ prompt: 'x', responseFormat: {} })).rejects.toThrow(/HTTP 500/);
+    await expect(client.chatJson({ prompt: 'x', schema: z.object({}) })).rejects.toThrow();
   });
 
-  it('repairs truncated JSON responses', async () => {
-    globalThis.fetch = vi.fn(async () =>
-      makeJsonResponse({ choices: [{ message: { content: '{"items":[1,2' } }] }),
-    ) as any;
+  it('forwards reasoning_effort when reasoning is enabled', async () => {
+    globalThis.fetch = stubFetch('{"ok":true,"n":1}');
+    const client = createLlmClient({ baseURL: 'http://test.local/v1', apiKey: 'k', model: 'm' });
 
-    const out = await client.chatJson<{ items: number[] }>({
+    await client.chatJson({
       prompt: 'x',
-      responseFormat: {},
+      schema: z.object({ ok: z.boolean(), n: z.number() }),
+      reasoningEffort: 'high',
     });
-    expect(out).toEqual({ items: [1, 2] });
-  });
 
-  it('throws when content is unrecoverable garbage', async () => {
-    globalThis.fetch = vi.fn(async () =>
-      makeJsonResponse({ choices: [{ message: { content: 'not json :: ((' } }] }),
-    ) as any;
-
-    await expect(client.chatJson({ prompt: 'x', responseFormat: {} })).rejects.toThrow(
-      /JSON parse failed/,
-    );
+    expect(captured.body.reasoning_effort).toBe('high');
   });
 });
 
 describe('LlmClient.chatVision', () => {
-  let client: LlmClient;
   beforeEach(() => {
-    client = createLlmClient({
+    captured = { url: '', method: '', headers: {}, body: {} };
+  });
+
+  it('sends a multimodal user message with the image as base64', async () => {
+    globalThis.fetch = stubFetch('# OCR result');
+    const client = createLlmClient({
       baseURL: 'http://test.local/v1',
       apiKey: 'k',
       model: 'vision-m',
-      timeoutMs: 1000,
     });
-  });
-  afterEach(() => {
-    globalThis.fetch = ORIGINAL_FETCH;
-  });
 
-  it('sends a multimodal message with the image as data: url', async () => {
-    const captured: any = {};
-    globalThis.fetch = vi.fn(async (_url: any, init: any) => {
-      captured.body = JSON.parse(init.body);
-      return makeJsonResponse({ choices: [{ message: { content: '# OCR result' } }] });
-    }) as any;
-
-    const out = await client.chatVision({ prompt: 'p', imageBase64: 'abc' });
+    const out = await client.chatVision({ prompt: 'p', imageBase64: 'aGVsbG8=' });
     expect(out).toBe('# OCR result');
     expect(captured.body.model).toBe('vision-m');
-    const contentParts = captured.body.messages[0].content;
-    expect(contentParts).toHaveLength(2);
-    expect(contentParts[0]).toEqual({ type: 'text', text: 'p' });
-    expect(contentParts[1].type).toBe('image_url');
-    expect(contentParts[1].image_url.url).toBe('data:image/png;base64,abc');
+    const messages = captured.body.messages as Array<{
+      role: string;
+      content: Array<{ type: string; text?: string; image_url?: { url: string } }>;
+    }>;
+    const parts = messages[0]?.content ?? [];
+    expect(parts).toHaveLength(2);
+    expect(parts[0]).toEqual({ type: 'text', text: 'p' });
+    expect(parts[1]?.type).toBe('image_url');
+    expect(parts[1]?.image_url?.url).toContain('aGVsbG8=');
   });
 
-  it('falls back to reasoning_content when content is empty', async () => {
-    globalThis.fetch = vi.fn(async () =>
-      makeJsonResponse({
-        choices: [{ message: { content: '', reasoning_content: 'fallback body' } }],
-      }),
-    ) as any;
-    const out = await client.chatVision({ prompt: 'p', imageBase64: 'x' });
-    expect(out).toBe('fallback body');
-  });
-
-  it('throws on non-OK HTTP', async () => {
-    globalThis.fetch = vi.fn(async () => new Response('forbidden', { status: 403 })) as any;
-    await expect(client.chatVision({ prompt: 'p', imageBase64: 'x' })).rejects.toThrow(
-      /Vision HTTP 403/,
-    );
+  it('throws on non-retryable HTTP error (403)', async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: { message: 'forbidden' } }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    ) as unknown as typeof globalThis.fetch;
+    const client = createLlmClient({ baseURL: 'http://test.local/v1', apiKey: 'k', model: 'm' });
+    await expect(client.chatVision({ prompt: 'p', imageBase64: 'x' })).rejects.toThrow();
   });
 });

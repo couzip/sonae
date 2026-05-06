@@ -42,7 +42,10 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
   // 旧キャッシュなど LLM が user-facing テキストに action_id を漏らした場合の最終 strip
   const ID_PAREN_RE = /[（(]\s*[a-z][a-z0-9]*(?:_[a-z0-9]+)+\s*[）)]/g;
   const stripIds = (s: string): string =>
-    s.replace(ID_PAREN_RE, '').replace(/\s+([、。])/g, '$1').trim();
+    s
+      .replace(ID_PAREN_RE, '')
+      .replace(/\s+([、。])/g, '$1')
+      .trim();
 
   const activeDisasters = result.by_disaster_type.filter((d) => d.scenarios.length > 0);
 
@@ -135,9 +138,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
                       >
                         <div style={{ fontWeight: 600 }}>{name}</div>
                         {scale && <div style={{ color: '#475569' }}>{scale}</div>}
-                        {damage && (
-                          <div style={{ color: '#475569', marginTop: 2 }}>{damage}</div>
-                        )}
+                        {damage && <div style={{ color: '#475569', marginTop: 2 }}>{damage}</div>}
                       </li>
                     );
                   })}
@@ -232,8 +233,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
         <div style={{ marginBottom: 8, fontSize: '11px', color: '#475569' }}>
           {(['done', 'pending', 'na', 'unanswered'] as const).map((s, i) => (
             <span key={s}>
-              {STATE_LABEL[s]} <strong>{grouped[s].length}</strong> 件
-              {i < 3 ? ' / ' : ''}
+              {STATE_LABEL[s]} <strong>{grouped[s].length}</strong> 件{i < 3 ? ' / ' : ''}
             </span>
           ))}
         </div>

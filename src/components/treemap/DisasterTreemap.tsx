@@ -139,9 +139,7 @@ export function DisasterTreemap({ assessment, onSelect, selectedJpType }: Disast
                 scenarios={scenarios}
                 tone={disasterTone(it.jpType)}
                 isSelected={!isBundle && selectedJpType === it.jpType}
-                onClick={
-                  !isBundle && onSelect ? () => onSelect(it.jpType, it.enumType) : undefined
-                }
+                onClick={!isBundle && onSelect ? () => onSelect(it.jpType, it.enumType) : undefined}
                 delay={i * 0.04}
                 infoOnly={isBundle}
                 bundleLabels={it.bundle}
