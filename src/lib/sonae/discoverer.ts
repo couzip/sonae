@@ -13,22 +13,21 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { mkdirSync } from 'node:fs';
-import type { BrowserContext, Page } from 'rebrowser-playwright';
+
 // rebrowser-playwright: Playwright の binary patch 版。CDP の Runtime.Enable
 // リーク等の bot 判定の根本原因を fork レベルで修正している。
 // 通常の playwright-extra/stealth は JS パッチだけで CDP リークを塞げない。
-import { chromium } from 'rebrowser-playwright';
+import { chromium, type BrowserContext, type Page } from 'rebrowser-playwright';
 
-// 永続 user_data_dir。Cookie / localStorage / fingerprint が累積する。
+import type { Discoverer, LlmClient, PipelineContext } from '@/lib/core';
+import { findByCode } from './municipality';
+import type { SonaeQuery, SonaeSource } from './types';
+
 function persistentProfileDir(): string {
   const dir = join(homedir(), '.config', 'sonae-discovery', 'chromium-profile');
   mkdirSync(dir, { recursive: true });
   return dir;
 }
-
-import type { Discoverer, LlmClient, PipelineContext } from '@/lib/core';
-import { findByCode } from './municipality';
-import type { SonaeQuery, SonaeSource } from './types';
 
 type DiscoverCtx = PipelineContext<SonaeQuery>;
 
