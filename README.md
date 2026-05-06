@@ -18,7 +18,7 @@ user's building age, household composition, and location.
 | Track | Global Resilience |
 | Hackathon | [Kaggle: The Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon) |
 | Submission deadline | May 18, 2026 |
-| Models | Gemma 4 4B (local), Gemma 4 26B-A4B (precision roles), a vision model for OCR |
+| Models | Gemma 4 4B (most calls), Gemma 4 26B-A4B (precision roles), a vision model for OCR — any OpenAI-compatible endpoint, local or remote |
 | License | MIT |
 
 ---
@@ -112,18 +112,19 @@ five tools to the model:
 `streamText` with `stopWhen: stepCountIs(8)` lets the model call tools,
 inspect results, and call more before answering. Retrieval is character
 bigrams over chunked markdown; there is no embedding model and no vector
-store. That's enough for the corpus size and keeps the deployment to
-LM Studio + LiteLLM proxy.
+store. That's enough for the corpus size and keeps the deployment to a
+single LLM endpoint plus an OCR endpoint.
 
 ### 4. Role-based model routing
 
 `src/lib/sonae/llmRoles.ts` resolves a model per role: `main`, `discovery`,
 `toc`, `step_a`, `next_actions`, `chat`, `ocr`. Each role falls back to
-`main` if not overridden. The reference setup uses Gemma 4 4B locally for
-most calls and Gemma 4 26B-A4B (via OpenRouter / LiteLLM proxy) for the
-precision-sensitive roles (TOC selection, Step A, chat tool selection).
-Per-role overrides are env vars; no code change is required to swap a
-provider.
+`main` if not overridden. Each role takes its own `(baseURL, apiKey, model)`
+triple via env vars, so a small fast model can run most calls and a larger
+model can handle the precision-sensitive roles (TOC selection, Step A,
+chat tool selection) without code changes. Any OpenAI-compatible endpoint
+works on any role (LM Studio, Ollama, vLLM, OpenRouter, LiteLLM proxy,
+etc.).
 
 ---
 
@@ -131,7 +132,7 @@ provider.
 
 | Layer | Stack |
 |---|---|
-| LLM | Gemma 4 4B locally; Gemma 4 26B-A4B via OpenRouter / LiteLLM proxy for precision roles |
+| LLM | Gemma 4 4B for most calls; Gemma 4 26B-A4B for precision roles. Any OpenAI-compatible endpoint (LM Studio, Ollama, vLLM, OpenRouter, LiteLLM proxy, …) |
 | LLM client | Vercel AI SDK (`@ai-sdk/openai-compatible` + `generateObject` / `generateText` / `streamText`) |
 | Chat / tools | Vercel AI SDK `tool()` + `useChat` + `DefaultChatTransport` |
 | Vision OCR | OpenAI-compatible vision endpoint (model in `.env.example`) |
@@ -200,8 +201,8 @@ parsed + result, keep upstream).
 - An OpenAI-compatible LLM endpoint serving a small instruction-tuned LLM
   (Gemma 4 4B class) and a vision model for OCR.
 - For the precision-sensitive roles (TOC selection, Step A, chat), a
-  larger model is recommended (Gemma 4 26B-A4B class via OpenRouter /
-  LiteLLM proxy works).
+  larger model is recommended (Gemma 4 26B-A4B class). Any OpenAI-compatible
+  endpoint works.
 
 The exact model identifiers used in the reference deployment are in
 [`.env.example`](.env.example). Other OpenAI-compatible endpoints work; set
@@ -277,9 +278,9 @@ resident in a few minutes:
   Google search. It works, but per-prefecture sitemap crawling or a paid
   search API is the upgrade path. Cities with a registry entry never hit
   this fallback.
-- The reference deployment uses Gemma 4 4B locally and a vision model for
-  OCR (identifiers in `.env.example`). Other models work but may need
-  prompt tuning for strict JSON Schema output.
+- The reference deployment uses Gemma 4 4B and a vision model for OCR
+  (identifiers in `.env.example`). Other OpenAI-compatible models work but
+  may need prompt tuning for strict JSON Schema output.
 - Prototype, not production. **In an actual emergency, follow JMA /
   municipal authoritative information.**
 
