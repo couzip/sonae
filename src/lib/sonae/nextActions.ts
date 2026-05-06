@@ -40,7 +40,7 @@ export interface NextActionsInput {
   available_actions: Countermeasure[];
 }
 
-function summarizeProfile(p: NextActionsInput['user_profile']): string {
+export function summarizeProfile(p: NextActionsInput['user_profile']): string {
   const parts: string[] = [];
   if (p.building?.year_built)
     parts.push(`築${2026 - p.building.year_built}年(${p.building.year_built}年)`);
