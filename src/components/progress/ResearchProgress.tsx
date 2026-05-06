@@ -41,7 +41,7 @@ export function ResearchProgress() {
       ? '完了しました'
       : status === 'error'
         ? '取得に失敗しました'
-        : (currentPhase && PHASE_HEADLINE[currentPhase]) ?? '情報を収集しています';
+        : ((currentPhase && PHASE_HEADLINE[currentPhase]) ?? '情報を収集しています');
 
   const dots = '.'.repeat(dotCount);
   const recentLogs = logs.slice(-200);
@@ -69,9 +69,7 @@ export function ResearchProgress() {
               <li
                 key={i}
                 className={
-                  l.tone === 'error'
-                    ? 'text-scale-lg break-all'
-                    : 'text-ink-mute break-all'
+                  l.tone === 'error' ? 'text-scale-lg break-all' : 'text-ink-mute break-all'
                 }
               >
                 <span className="text-ink-dim mr-2 tabular-nums">{fmtTime(l.ts)}</span>

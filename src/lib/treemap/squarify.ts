@@ -1,9 +1,4 @@
-import {
-  hierarchy,
-  treemap,
-  treemapSquarify,
-  type HierarchyRectangularNode,
-} from 'd3-hierarchy';
+import { hierarchy, treemap, treemapSquarify, type HierarchyRectangularNode } from 'd3-hierarchy';
 
 export interface TreemapInput<T> {
   id: string;

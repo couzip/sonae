@@ -9,7 +9,7 @@
 
 import type { Countermeasure } from '@/lib/sonae/client/countermeasures-filter';
 import { getLlm } from './llmRoles';
-import { NEXT_ACTIONS_JSON_SCHEMA, type NextActions } from './schemas';
+import { NextActionsSchema, type NextActions } from './schemas';
 
 export interface NextActionsInput {
   location: { municipality_code: string; name: string };
@@ -135,9 +135,10 @@ action_id (英数字とアンダースコアの ID) を含めない。括弧で�
 
 出力は指定スキーマの JSON のみ。前置きや説明文は不要。`;
 
-  const result = await getLlm('next_actions').chatJson<NextActions>({
+  const result = await getLlm('next_actions').chatJson({
     prompt,
-    responseFormat: NEXT_ACTIONS_JSON_SCHEMA,
+    schema: NextActionsSchema,
+    schemaName: 'NextActions',
   });
   return sanitizeUserFacingIds(result);
 }
@@ -146,7 +147,10 @@ action_id (英数字とアンダースコアの ID) を含めない。括弧で�
 // パターン (例: "家具の固定（eq_furniture_securing）") の括弧部だけを取り除く。
 const ID_PAREN_RE = /[（(]\s*[a-z][a-z0-9]*(?:_[a-z0-9]+)+\s*[）)]/g;
 function stripIds(text: string): string {
-  return text.replace(ID_PAREN_RE, '').replace(/\s+([、。])/g, '$1').trim();
+  return text
+    .replace(ID_PAREN_RE, '')
+    .replace(/\s+([、。])/g, '$1')
+    .trim();
 }
 export function sanitizeUserFacingIds(r: NextActions): NextActions {
   return {

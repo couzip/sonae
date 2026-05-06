@@ -177,7 +177,6 @@ let _pipelineFullOcr: SonaePipeline | null = null;
 
 import { getLlm } from './llmRoles';
 
-
 function buildPipeline(mode: 'strict' | 'full_ocr_fallback'): SonaePipeline {
   const root = cacheRoot();
   ensureCacheDirs(root);

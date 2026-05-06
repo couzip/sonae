@@ -7,15 +7,9 @@ import { StatusBadge } from '@/components/admin/StatusBadge';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PrefecturePage({
-  params,
-}: {
-  params: Promise<{ code: string }>;
-}) {
+export default async function PrefecturePage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  const bucket = groupAdminMunicipalitiesByPrefecture().find(
-    (b) => b.prefecture_code === code,
-  );
+  const bucket = groupAdminMunicipalitiesByPrefecture().find((b) => b.prefecture_code === code);
   // bucket 不在 = 都道府県に登録/cache が 1 件も無い状態。code が JIS X 0402 県コード
   // (01-47) であれば空状態を表示する。それ以外 (= 不明な code) のみ 404 にする。
   const prefName = PREFECTURE_BY_CODE[code];

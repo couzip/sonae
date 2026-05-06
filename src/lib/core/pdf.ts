@@ -44,9 +44,7 @@ function resolvePdfjsRoot(): string {
     // We don't try to enumerate pnpm hashes here. If you hit this, install
     // pdfjs-dist as a top-level dependency in your fork.
   }
-  throw new Error(
-    `pdfjs-dist not found at ${direct}. Install it as a top-level dependency.`,
-  );
+  throw new Error(`pdfjs-dist not found at ${direct}. Install it as a top-level dependency.`);
 }
 
 const _pdfjsRoot = resolvePdfjsRoot();

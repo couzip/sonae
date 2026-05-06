@@ -12,10 +12,9 @@
 import type { Extractor, LlmClient, PipelineContext, ReasoningEffort } from '@/lib/core';
 import {
   DISASTER_TYPE_ENUM,
-  STEP_A_JSON_SCHEMA,
-  STEP_B_JSON_SCHEMA,
+  StepATypesSchema,
+  StepBScenariosSchema,
   type DisasterAssessment,
-  type Scenario,
 } from './schemas';
 import type { SonaeParsed, SonaeQuery, SonaeSource } from './types';
 
@@ -23,13 +22,6 @@ function readEffort(envValue: string | undefined): ReasoningEffort {
   const v = (envValue ?? 'off').toLowerCase();
   if (v === 'low' || v === 'medium' || v === 'high') return v;
   return 'off';
-}
-
-interface StepAOut {
-  types: string[];
-}
-interface StepBOut {
-  scenarios: Scenario[];
 }
 
 export interface ExtractorOptions {
@@ -91,9 +83,10 @@ ${md}`;
     }
     const t_a = Date.now();
     const stepALlm = this.opts.stepALlm ?? this.opts.llm;
-    const stepA = await stepALlm.chatJson<StepAOut>({
+    const stepA = await stepALlm.chatJson({
       prompt: stepAPrompt,
-      responseFormat: STEP_A_JSON_SCHEMA,
+      schema: StepATypesSchema,
+      schemaName: 'DisasterTypes',
       reasoningEffort: stepAEffort,
     });
     const allowedTypes = new Set<string>(DISASTER_TYPE_ENUM);
@@ -155,9 +148,10 @@ ${md}
 ---`;
       try {
         const t0 = Date.now();
-        const stepB = await this.opts.llm.chatJson<StepBOut>({
+        const stepB = await this.opts.llm.chatJson({
           prompt: stepBPrompt,
-          responseFormat: STEP_B_JSON_SCHEMA,
+          schema: StepBScenariosSchema,
+          schemaName: 'TypeScenarios',
           reasoningEffort: stepBEffort,
         });
         const dt = ((Date.now() - t0) / 1000).toFixed(1);

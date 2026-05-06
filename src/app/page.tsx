@@ -1,11 +1,5 @@
-import { MapHost } from '@/components/map/MapHost';
-import { ScreenRouter } from '@/components/screens/ScreenRouter';
+import { HomeShell } from '@/components/screens/HomeShell';
 
 export default function Home() {
-  return (
-    <main className="relative h-screen w-screen overflow-hidden">
-      <MapHost />
-      <ScreenRouter />
-    </main>
-  );
+  return <HomeShell />;
 }

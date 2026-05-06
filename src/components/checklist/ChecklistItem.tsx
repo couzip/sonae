@@ -5,10 +5,7 @@ import type { Countermeasure } from '@/lib/sonae/client/countermeasures-filter';
 import { useChecklistStore } from '@/stores/useChecklistStore';
 import { useResearchStore } from '@/stores/useResearchStore';
 import { SourceLink } from '@/components/cockpit';
-import {
-  disasterEnumToJp,
-  disasterJpToEnum,
-} from '@/lib/sonae/client/disaster-mapping';
+import { disasterEnumToJp, disasterJpToEnum } from '@/lib/sonae/client/disaster-mapping';
 import { disasterTone } from '@/lib/sonae/client/disaster-style';
 import { TriStateToggle } from './TriStateToggle';
 
@@ -38,13 +35,10 @@ export function ChecklistItem({ item, municipalityCode }: ChecklistItemProps) {
     return set;
   }, [result]);
 
-  const isCommon =
-    item.disaster_group === 'common' || item.applicable_disasters.includes('common');
+  const isCommon = item.disaster_group === 'common' || item.applicable_disasters.includes('common');
   const labels = isCommon
     ? ['共通']
-    : item.applicable_disasters
-        .filter((e) => detectedEnums.has(e))
-        .map((e) => disasterEnumToJp(e));
+    : item.applicable_disasters.filter((e) => detectedEnums.has(e)).map((e) => disasterEnumToJp(e));
 
   return (
     <li className="border-hairline border-hairline rounded-cockpit hover:border-ink-mute transition-colors">

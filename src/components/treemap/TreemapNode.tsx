@@ -91,7 +91,8 @@ export function TreemapNode({
         className={cn(
           'group h-full w-full text-left p-3 rounded-cockpit transition-colors border overflow-hidden',
           isSelected && 'ring-1 ring-accent',
-          onClick && 'cursor-pointer hover:brightness-125 focus:outline-none focus:ring-1 focus:ring-accent',
+          onClick &&
+            'cursor-pointer hover:brightness-125 focus:outline-none focus:ring-1 focus:ring-accent',
         )}
       >
         {showFull && (
@@ -137,9 +138,7 @@ export function TreemapNode({
                           {s.scale}
                         </span>
                       )}
-                      <span className="text-sm text-ink font-sans">
-                        {s.name ?? '想定シナリオ'}
-                      </span>
+                      <span className="text-sm text-ink font-sans">{s.name ?? '想定シナリオ'}</span>
                     </div>
                     {s.expected_damage && (
                       <p className="text-xs text-ink-mute leading-relaxed">{s.expected_damage}</p>

@@ -8,11 +8,7 @@ import { DeleteMunicipalityButton } from '@/components/admin/DeleteMunicipalityB
 
 export const dynamic = 'force-dynamic';
 
-export default async function MunicipalityPage({
-  params,
-}: {
-  params: Promise<{ code: string }>;
-}) {
+export default async function MunicipalityPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const muni = findAdminMunicipality(code);
   if (!muni) notFound();

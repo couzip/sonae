@@ -21,7 +21,7 @@ import {
   type PipelineContext,
   type RenderedPage,
 } from '@/lib/core';
-import { TOC_JSON_SCHEMA, type TocSelection } from './schemas';
+import { TocSelectionSchema, type TocSelection } from './schemas';
 import type { SonaeBlob, SonaeParsed, SonaeQuery, SonaeSource } from './types';
 
 export const TOC_SCAN_PAGES = 12;
@@ -36,6 +36,14 @@ const norm = (s: string) =>
   s
     .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xff10 + 0x30))
     .replace(/[\s　・,。、()（）]/g, '');
+
+// OCR で拾った heading は表構造などで巨大化しうるので、log 出力時は短縮する。
+const LOG_HEADING_LIMIT = 60;
+const truncForLog = (s: string | null | undefined): string => {
+  if (!s) return 'なし';
+  const flat = s.replace(/\s+/g, ' ').trim();
+  return flat.length > LOG_HEADING_LIMIT ? flat.slice(0, LOG_HEADING_LIMIT) + '…' : flat;
+};
 
 /**
  * 章タイトルから先頭の「第N章/節/項/編」「N章/節/項/編」「N.」「N」等の
@@ -240,7 +248,7 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
       ctx.emit({
         type: 'log',
         phase: 'ocr_section',
-        message: `page ${pageNum}: ${text.length}文字 (${dt}s) heading: ${heading ?? 'なし'}`,
+        message: `page ${pageNum}: ${text.length}文字 (${dt}s) heading: ${truncForLog(heading)}`,
       });
       if (heading) {
         startPage = pageNum;
@@ -252,7 +260,7 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
     ctx.emit({
       type: 'log',
       phase: 'ocr_section',
-      message: `本文 start = page ${startPage} ("${startHeading}")`,
+      message: `本文 start = page ${startPage} ("${truncForLog(startHeading)}")`,
     });
 
     // Phase 4c: OCR `page_count` pages from startPage
@@ -323,9 +331,9 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
       status: 'started',
       message: `全 ${totalPages} ページを OCR (full_ocr_fallback)`,
     });
-    const rendered = (await renderPages(blob.pdf_path, `${work}/full_pages`, allPageNums, 2.5)).sort(
-      (a, b) => a.pageNum - b.pageNum,
-    );
+    const rendered = (
+      await renderPages(blob.pdf_path, `${work}/full_pages`, allPageNums, 2.5)
+    ).sort((a, b) => a.pageNum - b.pageNum);
     const ocrCache = new Map<number, string>();
     for (const r of rendered) {
       if (ctx.signal?.aborted) throw new Error('aborted');
@@ -406,7 +414,7 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
     ctx.emit({
       type: 'log',
       phase: 'ocr_section',
-      message: `本文 start = page ${startPage} ("${startHeading}")`,
+      message: `本文 start = page ${startPage} ("${truncForLog(startHeading)}")`,
     });
 
     const targetPageNums: number[] = [];
@@ -470,9 +478,10 @@ ${tocMarkdown}
 --- 目次ここまで ---`;
 
     const llm = this.opts.tocLlm ?? this.opts.llm;
-    const parsed = await llm.chatJson<TocSelection>({
+    const parsed: TocSelection = await llm.chatJson({
       prompt,
-      responseFormat: TOC_JSON_SCHEMA,
+      schema: TocSelectionSchema,
+      schemaName: 'TocSelection',
     });
     const title = String(parsed.title ?? '')
       .replace(/^#+\s*/, '')

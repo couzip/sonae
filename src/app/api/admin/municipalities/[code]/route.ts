@@ -13,10 +13,7 @@ export const dynamic = 'force-dynamic';
 
 const PatchSchema = MunicipalitySchema.partial().omit({ code: true });
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ code: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const muni = listRegistryEntries().find((m) => m.code === code);
   if (!muni) {
@@ -25,10 +22,7 @@ export async function GET(
   return NextResponse.json({ municipality: muni, cache: inspectCache(code) });
 }
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ code: string }> },
-) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   let body: unknown;
   try {
@@ -52,10 +46,7 @@ export async function PATCH(
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ code: string }> },
-) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   try {
     deleteRegistryEntry(code);

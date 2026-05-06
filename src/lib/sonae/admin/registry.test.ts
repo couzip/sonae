@@ -11,11 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  addRegistryEntry,
-  deleteRegistryEntry,
-  updateRegistryEntry,
-} from './registry';
+import { addRegistryEntry, deleteRegistryEntry, updateRegistryEntry } from './registry';
 
 const SEED_YAML = `# 神奈川県
 - code: '14100'

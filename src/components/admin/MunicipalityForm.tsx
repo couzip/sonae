@@ -62,9 +62,8 @@ export function MunicipalityForm({ mode, initial, onAfterSubmit }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const upd =
-    (k: keyof MunicipalityFormValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
-      setV((cur) => ({ ...cur, [k]: e.target.value }));
+  const upd = (k: keyof MunicipalityFormValues) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setV((cur) => ({ ...cur, [k]: e.target.value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

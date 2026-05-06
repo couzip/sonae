@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import {
-  addRegistryEntry,
-  listRegistryEntries,
-} from '@/lib/sonae/admin/registry';
+import { addRegistryEntry, listRegistryEntries } from '@/lib/sonae/admin/registry';
 import { inspectCacheBriefly } from '@/lib/sonae/admin/cacheInspect';
 import { MunicipalitySchema } from '@/lib/sonae/schemas';
 

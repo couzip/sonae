@@ -26,12 +26,7 @@ export function RegisterMunicipalityForm() {
     };
   })();
 
-  const ready = !!(
-    derived?.code &&
-    derived.prefecture_code &&
-    derived.prefecture &&
-    derived.name
-  );
+  const ready = !!(derived?.code && derived.prefecture_code && derived.prefecture && derived.name);
 
   const onSubmit = async () => {
     if (!derived || !ready) return;

@@ -74,7 +74,12 @@ export function ResearchScreen() {
                 <div className="mt-2 flex gap-2">
                   <button
                     type="button"
-                    onClick={() => start(municipality.code, { name: municipality.name, prefecture: municipality.prefecture })}
+                    onClick={() =>
+                      start(municipality.code, {
+                        name: municipality.name,
+                        prefecture: municipality.prefecture,
+                      })
+                    }
                     className="border-hairline border-hairline px-3 py-1 rounded-cockpit hover:border-accent transition-colors text-xs text-ink"
                   >
                     再試行

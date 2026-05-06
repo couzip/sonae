@@ -3,15 +3,7 @@
 import { ReactNode, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import {
-  Database,
-  ExternalLink,
-  Layers,
-  LogOut,
-  MapPin,
-  Plus,
-  Shield,
-} from 'lucide-react';
+import { Database, ExternalLink, Layers, LogOut, MapPin, Plus, Shield } from 'lucide-react';
 
 interface NavItem {
   href: string;

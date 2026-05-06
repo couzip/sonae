@@ -28,9 +28,7 @@ export function PlacePickerScreen() {
                 )}
               </>
             ) : (
-              <div className="text-sm text-ink-mute">
-                地図をクリック、または上から場所を入力
-              </div>
+              <div className="text-sm text-ink-mute">地図をクリック、または上から場所を入力</div>
             )}
           </div>
 

@@ -21,6 +21,7 @@ import { chromium, type BrowserContext, type Page } from 'rebrowser-playwright';
 
 import type { Discoverer, LlmClient, PipelineContext } from '@/lib/core';
 import { findByCode } from './municipality';
+import { PickResultSchema } from './schemas';
 import type { SonaeQuery, SonaeSource } from './types';
 
 function persistentProfileDir(): string {
@@ -49,29 +50,6 @@ export function cleanRelativeUrl(s: string | undefined): string {
   v = v.replace(/[<>"'`\\,)\]]+$/, '');
   return v;
 }
-
-const PICK_JSON_SCHEMA = {
-  type: 'json_schema',
-  json_schema: {
-    name: 'PdfPick',
-    strict: true,
-    schema: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        pick_index: {
-          type: 'integer',
-          description: '選んだ PDF の index (0-based)',
-        },
-        reason: {
-          type: 'string',
-          description: '選定理由 (50 字程度)',
-        },
-      },
-      required: ['pick_index', 'reason'],
-    },
-  },
-} as const;
 
 export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
   private readonly llm: LlmClient;
@@ -116,17 +94,14 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
     // rebrowser-playwright + system Chrome の組み合わせ。Google bot 判定を回避する 2025 年時点の
     // 最も実績のある構成。userAgent / Sec-CH-UA は手動指定せず、実 Chrome 由来の値を使う
     // (UA とクライアントヒントの不整合自体が bot シグナルになるため)。
-    const context: BrowserContext = await chromium.launchPersistentContext(
-      persistentProfileDir(),
-      {
-        channel: 'chrome',
-        headless: this.opts.headless ?? false,
-        viewport: null,
-        locale: 'ja-JP',
-        args: ['--disable-blink-features=AutomationControlled'],
-        ignoreDefaultArgs: ['--enable-automation'],
-      },
-    );
+    const context: BrowserContext = await chromium.launchPersistentContext(persistentProfileDir(), {
+      channel: 'chrome',
+      headless: this.opts.headless ?? false,
+      viewport: null,
+      locale: 'ja-JP',
+      args: ['--disable-blink-features=AutomationControlled'],
+      ignoreDefaultArgs: ['--enable-automation'],
+    });
     // navigator.webdriver を消すなど追加のシグナル隠蔽。CDP リーク自体は
     // rebrowser-playwright の binary patch で解消済み。
     await context.addInitScript(() => {
@@ -243,7 +218,9 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
       url.includes('consent.google.com') ||
       url.includes('captcha')
     ) {
-      throw new Error(`Google が bot 検出 (${safeHostname(url)})。手動で reCAPTCHA を解決してください`);
+      throw new Error(
+        `Google が bot 検出 (${safeHostname(url)})。手動で reCAPTCHA を解決してください`,
+      );
     }
   }
 
@@ -317,10 +294,7 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
     });
   }
 
-  private async filterReachable(
-    pdfs: PdfCandidate[],
-    ctx: DiscoverCtx,
-  ): Promise<PdfCandidate[]> {
+  private async filterReachable(pdfs: PdfCandidate[], ctx: DiscoverCtx): Promise<PdfCandidate[]> {
     const results = await Promise.all(
       pdfs.map(async (p) => {
         try {
@@ -349,9 +323,7 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
     ctx: DiscoverCtx,
   ): Promise<PdfCandidate> {
     const fullName = query.prefecture ? `${query.prefecture}${query.city_name}` : query.city_name;
-    const list = pdfs
-      .map((p, i) => `${i}. label: ${p.label}\n   url: ${p.url}`)
-      .join('\n\n');
+    const list = pdfs.map((p, i) => `${i}. label: ${p.label}\n   url: ${p.url}`).join('\n\n');
 
     const prompt = `${fullName} の地域防災計画について、以下の PDF 一覧から「被害想定が記載されている本編」を 1 つ選んでください。
 
@@ -384,9 +356,10 @@ pick_index に 0..${pdfs.length - 1} の整数で 1 件選び、reason に簡潔
 
     try {
       const t0 = Date.now();
-      const result = await this.llm.chatJson<{ pick_index: number; reason: string }>({
+      const result = await this.llm.chatJson({
         prompt,
-        responseFormat: PICK_JSON_SCHEMA,
+        schema: PickResultSchema,
+        schemaName: 'PdfPick',
       });
       const dt = ((Date.now() - t0) / 1000).toFixed(1);
       const idx = Math.max(0, Math.min(pdfs.length - 1, Number(result.pick_index) || 0));

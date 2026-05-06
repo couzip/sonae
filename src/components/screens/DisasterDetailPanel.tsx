@@ -92,9 +92,7 @@ export function DisasterDetailPanel() {
       title="対策チェックリスト"
       rightSlot={
         filteredItems && (
-          <span className="text-xs text-ink-mute tabular-nums">
-            {filteredItems.length} 件
-          </span>
+          <span className="text-xs text-ink-mute tabular-nums">{filteredItems.length} 件</span>
         )
       }
       className="h-full"
