@@ -39,7 +39,7 @@ export function BuildingForm() {
         <input
           type="number"
           min={1900}
-          max={2030}
+          max={new Date().getFullYear() + 5}
           value={building.year_built ?? ''}
           onChange={(e) =>
             setBuilding({ year_built: e.target.value ? parseInt(e.target.value, 10) : null })
