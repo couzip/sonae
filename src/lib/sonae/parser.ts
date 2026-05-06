@@ -73,11 +73,10 @@ export function findTitleHeading(text: string, keywordsNorm: string[]): string |
   return null;
 }
 
-function coreTitle(title: string): string {
+// 「第N節 ABC」と OCR 後の「N. ABC」を一致させるため、章/節/項の番号接頭辞を剥がす。
+export function coreTitle(title: string): string {
   let s = title;
-  // 「第N章/節/項/編/部」「第N」 (章/節/項/編/部 省略可) を剥がす
   s = s.replace(/^第[0-9０-９一二三四五六七八九十百]+[章節項編部]?\s*/u, '');
-  // 残った先頭の番号 (例: "２．" "2." "２") を剥がす
   s = s.replace(/^[0-9０-９一二三四五六七八九十百]+[\.．、)）]?\s*/u, '');
   return s.trim();
 }

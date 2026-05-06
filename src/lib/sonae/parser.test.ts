@@ -1,5 +1,33 @@
 import { describe, it, expect } from 'vitest';
-import { findTitleHeading } from './parser';
+import { coreTitle, findTitleHeading } from './parser';
+
+describe('coreTitle', () => {
+  it('「第N節」「第N章」「第N編」「第N部」を剥がす', () => {
+    expect(coreTitle('第3節 災害想定')).toBe('災害想定');
+    expect(coreTitle('第２章 被害想定')).toBe('被害想定');
+    expect(coreTitle('第1編 総則')).toBe('総則');
+    expect(coreTitle('第４部 復旧計画')).toBe('復旧計画');
+  });
+
+  it('「第N」 (章/節 等の接尾辞無し) も剥がす', () => {
+    expect(coreTitle('第15 予想される地震災害')).toBe('予想される地震災害');
+  });
+
+  it('全角・漢数字も処理できる', () => {
+    expect(coreTitle('第１章 ABC')).toBe('ABC');
+    expect(coreTitle('第三節 ABC')).toBe('ABC');
+  });
+
+  it('番号 (1. / 2．/ ２) のみの接頭辞も剥がす', () => {
+    expect(coreTitle('1. ABC')).toBe('ABC');
+    expect(coreTitle('２．ABC')).toBe('ABC');
+    expect(coreTitle('3) ABC')).toBe('ABC');
+  });
+
+  it('接頭辞が無い場合はそのまま返す', () => {
+    expect(coreTitle('被害想定')).toBe('被害想定');
+  });
+});
 
 const norm = (s: string) =>
   s
