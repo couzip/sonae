@@ -35,6 +35,12 @@ coverage/
 test-results/
 playwright-report/
 
+# probe スクリプトが書き出すスクリーンショット
+probe.png
+
+# 永続 Chromium profile (Discovery 用)
+.config/sonae-discovery/
+
 # IDE
 .vscode/
 .idea/

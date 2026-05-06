@@ -38,7 +38,7 @@ interface DiscovererOptions {
   headless?: boolean;
 }
 
-export interface PdfCandidate {
+interface PdfCandidate {
   url: string;
   label: string;
 }
