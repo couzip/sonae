@@ -3,6 +3,10 @@
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
+const MARGIN_TOP = 24;
+const MARGIN_BOTTOM = 24;
+const JPEG_QUALITY = 0.92;
+
 export async function generateReportPdf(element: HTMLElement, filename: string): Promise<void> {
   const canvas = await html2canvas(element, {
     scale: 2,
@@ -16,20 +20,14 @@ export async function generateReportPdf(element: HTMLElement, filename: string):
   const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
-
-  // 上下に余白を入れることで、ページ境界に文字が掛かって見切れるのを軽減する。
-  const MARGIN_TOP = 24;
-  const MARGIN_BOTTOM = 24;
   const usableHeight = pageHeight - MARGIN_TOP - MARGIN_BOTTOM;
-  // 連続ページの境界で行が真っ二つになるのを緩和するため、各ページに少し overlap を持たせる。
-  const OVERLAP_PT = 12;
 
   const imgWidth = pageWidth;
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
   if (imgHeight <= usableHeight) {
     pdf.addImage(
-      canvas.toDataURL('image/jpeg', 0.92),
+      canvas.toDataURL('image/jpeg', JPEG_QUALITY),
       'JPEG',
       0,
       MARGIN_TOP,
@@ -38,37 +36,60 @@ export async function generateReportPdf(element: HTMLElement, filename: string):
       undefined,
       'FAST',
     );
-  } else {
-    const sliceHeightPx = (usableHeight * canvas.width) / pageWidth;
-    const overlapPx = (OVERLAP_PT * canvas.width) / pageWidth;
-    let y = 0;
-    let pageIndex = 0;
-    while (y < canvas.height) {
-      const sliceCanvas = document.createElement('canvas');
-      const h = Math.min(sliceHeightPx, canvas.height - y);
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = h;
-      const sctx = sliceCanvas.getContext('2d');
-      if (!sctx) break;
-      sctx.fillStyle = '#ffffff';
-      sctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-      sctx.drawImage(canvas, 0, -y);
-      if (pageIndex > 0) pdf.addPage();
-      pdf.addImage(
-        sliceCanvas.toDataURL('image/jpeg', 0.92),
-        'JPEG',
-        0,
-        MARGIN_TOP,
-        imgWidth,
-        (h * imgWidth) / canvas.width,
-        undefined,
-        'FAST',
-      );
-      // 次ページの先頭は overlap 分だけ巻き戻して描画開始 (境界行の重複表示)
-      y += h - overlapPx;
-      if (h < sliceHeightPx) break;
-      pageIndex += 1;
+    pdf.save(filename);
+    return;
+  }
+
+  const sliceHeightPx = (usableHeight * canvas.width) / pageWidth;
+  const elementRect = element.getBoundingClientRect();
+  const scaleY = canvas.height / element.scrollHeight;
+  const blockBottoms: number[] = [];
+  for (const el of element.querySelectorAll<HTMLElement>('[data-pdf-block]')) {
+    const r = el.getBoundingClientRect();
+    blockBottoms.push((r.bottom - elementRect.top) * scaleY);
+  }
+  blockBottoms.push(canvas.height);
+  blockBottoms.sort((a, b) => a - b);
+
+  let pageStart = 0;
+  let pageIndex = 0;
+  while (pageStart < canvas.height) {
+    const pageLimit = pageStart + sliceHeightPx;
+    let pageEnd: number;
+    if (pageLimit >= canvas.height) {
+      pageEnd = canvas.height;
+    } else {
+      let largestFitting = 0;
+      for (const b of blockBottoms) {
+        if (b > pageStart && b <= pageLimit && b > largestFitting) largestFitting = b;
+      }
+      // ブロック境界が見つからない (= 単一ブロックがページ高を超える) 場合だけ pixel-cut にフォールバック
+      pageEnd = largestFitting > 0 ? largestFitting : pageLimit;
     }
+
+    const h = pageEnd - pageStart;
+    const sliceCanvas = document.createElement('canvas');
+    sliceCanvas.width = canvas.width;
+    sliceCanvas.height = h;
+    const sctx = sliceCanvas.getContext('2d');
+    if (!sctx) break;
+    sctx.fillStyle = '#ffffff';
+    sctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+    sctx.drawImage(canvas, 0, -pageStart);
+    if (pageIndex > 0) pdf.addPage();
+    pdf.addImage(
+      sliceCanvas.toDataURL('image/jpeg', JPEG_QUALITY),
+      'JPEG',
+      0,
+      MARGIN_TOP,
+      imgWidth,
+      (h * imgWidth) / canvas.width,
+      undefined,
+      'FAST',
+    );
+
+    pageStart = pageEnd;
+    pageIndex += 1;
   }
 
   pdf.save(filename);

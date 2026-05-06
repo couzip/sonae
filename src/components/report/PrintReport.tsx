@@ -78,7 +78,10 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
         lineHeight: 1.6,
       }}
     >
-      <header style={{ borderBottom: '2px solid #0f172a', paddingBottom: 12, marginBottom: 20 }}>
+      <header
+        data-pdf-block
+        style={{ borderBottom: '2px solid #0f172a', paddingBottom: 12, marginBottom: 20 }}
+      >
         <div style={{ fontSize: '11px', color: '#64748b', letterSpacing: '0.1em' }}>
           Sonae 個別レポート
         </div>
@@ -90,7 +93,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
         </div>
       </header>
 
-      <section style={{ marginBottom: 24 }}>
+      <section data-pdf-block style={{ marginBottom: 24 }}>
         <h2
           style={{
             fontSize: '14px',
@@ -106,7 +109,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
           <p style={{ color: '#64748b' }}>該当する想定なし</p>
         ) : (
           activeDisasters.map((d) => (
-            <div key={d.disaster_type} style={{ marginBottom: 14 }}>
+            <div key={d.disaster_type} data-pdf-block style={{ marginBottom: 14 }}>
               <h3 style={{ fontSize: '13px', fontWeight: 700, margin: '0 0 6px' }}>
                 {d.disaster_type}
                 <span style={{ fontSize: '10px', color: '#64748b', marginLeft: 8 }}>
@@ -128,6 +131,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
                     return (
                       <li
                         key={i}
+                        data-pdf-block
                         style={{
                           padding: '6px 8px',
                           marginBottom: 4,
@@ -149,7 +153,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
       </section>
 
       {nextActions?.priority_actions && nextActions.priority_actions.length > 0 && (
-        <section style={{ marginBottom: 24 }}>
+        <section data-pdf-block style={{ marginBottom: 24 }}>
           <h2
             style={{
               fontSize: '14px',
@@ -164,6 +168,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
           {nextActions.priority_actions.map((a, i) => (
             <div
               key={i}
+              data-pdf-block
               style={{
                 padding: '8px 10px',
                 marginBottom: 6,
@@ -196,7 +201,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
       )}
 
       {nextActions?.long_term_considerations && nextActions.long_term_considerations.length > 0 && (
-        <section style={{ marginBottom: 24 }}>
+        <section data-pdf-block style={{ marginBottom: 24 }}>
           <h2
             style={{
               fontSize: '14px',
@@ -210,7 +215,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
           </h2>
           <ul style={{ paddingLeft: 18, margin: 0 }}>
             {nextActions.long_term_considerations.map((c, i) => (
-              <li key={i} style={{ marginBottom: 4 }}>
+              <li key={i} data-pdf-block style={{ marginBottom: 4 }}>
                 {stripIds(c)}
               </li>
             ))}
@@ -218,7 +223,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
         </section>
       )}
 
-      <section style={{ marginBottom: 24 }}>
+      <section data-pdf-block style={{ marginBottom: 24 }}>
         <h2
           style={{
             fontSize: '14px',
@@ -239,7 +244,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
         </div>
         {(['done', 'pending', 'na'] as const).map((state) =>
           grouped[state].length > 0 ? (
-            <div key={state} style={{ marginBottom: 10 }}>
+            <div key={state} data-pdf-block style={{ marginBottom: 10 }}>
               <h3 style={{ fontSize: '12px', fontWeight: 700, margin: '0 0 4px' }}>
                 {STATE_LABEL[state]}
               </h3>
@@ -255,6 +260,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
 
       {result.source?.pdf_url && (
         <footer
+          data-pdf-block
           style={{
             borderTop: '1px solid #cbd5e1',
             paddingTop: 8,

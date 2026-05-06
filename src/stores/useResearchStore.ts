@@ -52,8 +52,59 @@ const ALL_PHASES: Phase[] = [
 ];
 
 // キャッシュ即返答時、UI 上で各 step を順に再生して「ちゃんと調べた」感を出す。
-const CACHE_REPLAY_PHASES: Phase[] = ['discovery', 'retrieval', 'toc', 'ocr_section', 'extract'];
-const CACHE_REPLAY_STEP_MS = 400;
+// 実パイプラインのフェーズ順を踏襲しつつ、各 phase ごとに時間と表示文言を分けて
+// 「順に処理が進んでいる」印象にする。
+interface CacheReplayStep {
+  phase: Phase;
+  durationMs: number;
+  startedMessage: string;
+  doneMessage: string;
+}
+
+const CACHE_REPLAY_STEPS: CacheReplayStep[] = [
+  {
+    phase: 'lookup',
+    durationMs: 350,
+    startedMessage: '自治体を特定しています',
+    doneMessage: '特定完了',
+  },
+  {
+    phase: 'cache_check',
+    durationMs: 450,
+    startedMessage: '保存済みキャッシュを確認しています',
+    doneMessage: 'キャッシュ確認',
+  },
+  {
+    phase: 'discovery',
+    durationMs: 700,
+    startedMessage: '計画 PDF を呼び出しています',
+    doneMessage: 'PDF 確定',
+  },
+  {
+    phase: 'retrieval',
+    durationMs: 600,
+    startedMessage: 'PDF を読み込んでいます',
+    doneMessage: '読み込み完了',
+  },
+  {
+    phase: 'toc',
+    durationMs: 800,
+    startedMessage: '目次を解析しています',
+    doneMessage: '対象章 確定',
+  },
+  {
+    phase: 'ocr_section',
+    durationMs: 1100,
+    startedMessage: '被害想定の本文を読み出しています',
+    doneMessage: '本文取得',
+  },
+  {
+    phase: 'extract',
+    durationMs: 900,
+    startedMessage: '災害種別とシナリオを再構成しています',
+    doneMessage: '再構成完了',
+  },
+];
 
 function initialPhases(): Record<Phase, PhaseStatus> {
   const out = {} as Record<Phase, PhaseStatus>;
@@ -69,13 +120,13 @@ type GetFn = () => ResearchState;
 function replayCacheAnimation(set: SetFn, get: GetFn, onDone: () => void): void {
   let i = 0;
   const tick = () => {
-    if (i >= CACHE_REPLAY_PHASES.length) {
+    if (i >= CACHE_REPLAY_STEPS.length) {
       const ph = get().phases;
-      const last = CACHE_REPLAY_PHASES[CACHE_REPLAY_PHASES.length - 1]!;
+      const last = CACHE_REPLAY_STEPS[CACHE_REPLAY_STEPS.length - 1]!;
       set({
         phases: {
           ...ph,
-          [last]: { phase: last, status: 'done', message: 'キャッシュ' },
+          [last.phase]: { phase: last.phase, status: 'done', message: last.doneMessage },
         },
         currentPhase: null,
       });
@@ -85,14 +136,14 @@ function replayCacheAnimation(set: SetFn, get: GetFn, onDone: () => void): void 
     const ph = get().phases;
     const next = { ...ph };
     if (i > 0) {
-      const prev = CACHE_REPLAY_PHASES[i - 1]!;
-      next[prev] = { phase: prev, status: 'done', message: 'キャッシュ' };
+      const prev = CACHE_REPLAY_STEPS[i - 1]!;
+      next[prev.phase] = { phase: prev.phase, status: 'done', message: prev.doneMessage };
     }
-    const cur = CACHE_REPLAY_PHASES[i]!;
-    next[cur] = { phase: cur, status: 'started', message: 'キャッシュ取得中…' };
-    set({ phases: next, currentPhase: cur });
+    const cur = CACHE_REPLAY_STEPS[i]!;
+    next[cur.phase] = { phase: cur.phase, status: 'started', message: cur.startedMessage };
+    set({ phases: next, currentPhase: cur.phase });
     i++;
-    setTimeout(tick, CACHE_REPLAY_STEP_MS);
+    setTimeout(tick, cur.durationMs);
   };
   tick();
 }
@@ -188,14 +239,13 @@ export const useResearchStore = create<ResearchState>()((set, get) => ({
           set({ status: 'error', error: payload.message });
           break;
         case 'cache_hit':
-          // 中間 layer (source/blob/parsed) の cache_hit は完了扱いにしない。
-          // result layer のみが「最終結果がそのまま返る」=完了。
+          // status は触らない。result layer hit でも、replay アニメーション完走後に
+          // 'result' ハンドラ側で 'done' に遷移する (replay 中は 'running' のまま)。
           append({
             ts: Date.now(),
             message: `[Cache] ${payload.layer ?? ''} ヒット`,
             tone: 'info',
           });
-          if (payload.layer === 'result') set({ status: 'cache_hit' });
           break;
         case 'result': {
           const ph = get().phases;
