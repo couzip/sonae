@@ -14,7 +14,9 @@ const config: Config = {
         ink: {
           DEFAULT: '#f4f4f5',
           mute: '#a1a1aa',
-          dim: '#52525b',
+          // dim を #52525b (WCAG AA 不合格) から #71717a (zinc-500) に
+          // 引き上げ。ダーク背景上でも 4.5:1 のコントラスト比を確保。
+          dim: '#71717a',
         },
         accent: {
           DEFAULT: '#14b8a6',
