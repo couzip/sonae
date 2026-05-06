@@ -13,6 +13,15 @@ official regional disaster plan PDF, OCRs the expected-damage section, and
 asks Gemma 4 to produce countermeasure recommendations adjusted to the
 user's building age, household composition, and location.
 
+It is also an OSS reference implementation of a more general pattern:
+small LLMs + structured extraction + scattered public sources. The same
+Pipeline runs the disaster app and the `examples/news-summarizer/` example
+(HTTP + HTML + LLM, no PDF / OCR), demonstrating the framework's
+domain-independence in code rather than only in description.
+
+> ⚠ **Sonae is a working prototype, not a production system. In an actual
+> emergency, follow JMA and municipal authoritative information first.**
+
 | Item | Value |
 |---|---|
 | Track | Global Resilience |
@@ -72,7 +81,69 @@ because pre-event hardening has the largest effect on survival.
 - Source attribution: every datum links to the official PDF page that produced it.
 - User profile lives in `localStorage`. Only the recommendation call sees it.
 - No numerical scores. The app shows facts and lets the user judge.
-- `/admin` panel for operators (registry editing, cache inspection, full-page OCR fallback).
+
+---
+
+## Privacy
+
+The pipeline is built so that, by default, no personal data leaves the
+user's device — and on-device inference is supported end-to-end so the
+default can be made strict.
+
+- **Profile (building age, household composition, lifestyle) is stored
+  only in browser `localStorage`.** It is never persisted on the server.
+  It is read into memory only when `/api/next-actions` is called, and is
+  forwarded only to the LLM endpoint configured by the operator (which can
+  be local).
+- **No user accounts, no signup, no email collected.** There is no
+  identity layer.
+- **No third-party analytics, no tracking scripts, no advertising SDKs.**
+  Outbound network calls from the app go only to: the configured LLM
+  endpoint, the configured OCR endpoint, and the municipality's own PDF
+  host. Nothing else.
+- **The cache is keyed by municipality code, not by user.** Two residents
+  of the same city share a single cached assessment; the cache contains
+  nothing that identifies a person.
+- **Public sources only.** The pipeline only fetches the official
+  municipal disaster plan, which is public information published by the
+  municipality.
+- **On-device inference end-to-end.** Pointing the LLM and OCR endpoints
+  at a local Gemma 4 4B + a local vision model (LM Studio, Ollama, vLLM,
+  …) means the user profile is processed without any data leaving the
+  device, and the app remains usable during a network outage — exactly
+  when a disaster-preparedness tool needs to keep working.
+- **`/admin` is auth-gated and disabled by default.** The admin panel
+  returns 503 when admin credentials are not set.
+
+For organizational adopters: there is no telemetry channel to remove, no
+cookie banner is required (no tracking cookies are set), and the framework
+parts in `lib/core/` make it straightforward to swap the storage layer
+(e.g., to a tenant-scoped backend) without changing the LLM logic.
+
+---
+
+## Why Gemma 4
+
+Sonae's LLM client is OpenAI-compatible, so the pipeline could in principle
+run on any chat completion endpoint. Gemma 4 was chosen for three reasons
+that other options (proprietary cloud APIs, smaller open models) don't
+satisfy together:
+
+1. **Apache 2.0 license**. Outputs are unrestricted, which matters for an
+   app that prints recommendations into a PDF a resident may share or
+   archive. Most cloud APIs put usage restrictions on outputs.
+2. **On-device viable**. Gemma 4 4B runs locally on consumer hardware. A
+   disaster-preparedness tool that requires an internet round-trip during a
+   network outage is a contradiction; on-device inference keeps the app
+   useful in the situation it is preparing the user for, and keeps the user
+   profile from ever leaving the device.
+3. **Size variations in the same family**. The 4B and 26B-A4B variants
+   share a tokenizer and prompt style, so the same prompts work across
+   sizes. Sonae uses 4B for the high-volume calls (Step B per-disaster
+   extraction, next-actions generation) and 26B-A4B only for the
+   precision-sensitive roles (TOC selection, Step A enumeration, chat tool
+   selection). Cost and latency are tunable per role without rewriting the
+   pipeline.
 
 ---
 
@@ -281,8 +352,6 @@ resident in a few minutes:
 - The reference deployment uses Gemma 4 4B and a vision model for OCR
   (identifiers in `.env.example`). Other OpenAI-compatible models work but
   may need prompt tuning for strict JSON Schema output.
-- Prototype, not production. **In an actual emergency, follow JMA /
-  municipal authoritative information.**
 
 ---
 
