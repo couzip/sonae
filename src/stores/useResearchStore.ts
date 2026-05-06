@@ -51,12 +51,56 @@ const ALL_PHASES: Phase[] = [
   'done',
 ];
 
+// キャッシュ即返答時、UI 上で各 step を順に再生して「ちゃんと調べた」感を出す。
+const CACHE_REPLAY_PHASES: Phase[] = [
+  'discovery',
+  'retrieval',
+  'toc',
+  'ocr_section',
+  'extract',
+];
+const CACHE_REPLAY_STEP_MS = 400;
+
 function initialPhases(): Record<Phase, PhaseStatus> {
   const out = {} as Record<Phase, PhaseStatus>;
   for (const p of ALL_PHASES) {
     out[p] = { phase: p, status: 'pending', message: '' };
   }
   return out;
+}
+
+type SetFn = (partial: Partial<ResearchState>) => void;
+type GetFn = () => ResearchState;
+
+function replayCacheAnimation(set: SetFn, get: GetFn, onDone: () => void): void {
+  let i = 0;
+  const tick = () => {
+    if (i >= CACHE_REPLAY_PHASES.length) {
+      const ph = get().phases;
+      const last = CACHE_REPLAY_PHASES[CACHE_REPLAY_PHASES.length - 1]!;
+      set({
+        phases: {
+          ...ph,
+          [last]: { phase: last, status: 'done', message: 'キャッシュ' },
+        },
+        currentPhase: null,
+      });
+      onDone();
+      return;
+    }
+    const ph = get().phases;
+    const next = { ...ph };
+    if (i > 0) {
+      const prev = CACHE_REPLAY_PHASES[i - 1]!;
+      next[prev] = { phase: prev, status: 'done', message: 'キャッシュ' };
+    }
+    const cur = CACHE_REPLAY_PHASES[i]!;
+    next[cur] = { phase: cur, status: 'started', message: 'キャッシュ取得中…' };
+    set({ phases: next, currentPhase: cur });
+    i++;
+    setTimeout(tick, CACHE_REPLAY_STEP_MS);
+  };
+  tick();
 }
 
 let currentSource: EventSource | null = null;
@@ -159,15 +203,23 @@ export const useResearchStore = create<ResearchState>()((set, get) => ({
           });
           if (payload.layer === 'result') set({ status: 'cache_hit' });
           break;
-        case 'result':
-          set({
-            status: 'done',
-            result: payload.data as DisasterAssessment,
-          });
-          append({ ts: Date.now(), message: `=== 完了 ===`, tone: 'info' });
+        case 'result': {
+          const ph = get().phases;
+          const nothingPlayed = ph.discovery?.status === 'pending';
+          set({ result: payload.data as DisasterAssessment });
           es.close();
           currentSource = null;
+          if (nothingPlayed) {
+            replayCacheAnimation(set, get, () => {
+              set({ status: 'done' });
+              append({ ts: Date.now(), message: '=== 完了 (キャッシュ) ===', tone: 'info' });
+            });
+          } else {
+            set({ status: 'done' });
+            append({ ts: Date.now(), message: '=== 完了 ===', tone: 'info' });
+          }
           break;
+        }
       }
     };
 
