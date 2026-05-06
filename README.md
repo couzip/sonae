@@ -75,7 +75,7 @@ src/
 │   │   └── index.ts
 │   │
 │   ├── sonae/                # Disaster domain (reference implementation)
-│   │   ├── discoverer.ts        municipality registry + browser-use fallback
+│   │   ├── discoverer.ts        municipality registry + Playwright Discovery
 │   │   ├── retriever.ts         PDF download with HTTP headers captured
 │   │   ├── parser.ts            TOC → LLM section pick → keyword scan → partial OCR
 │   │   ├── extractor.ts         map-reduce: enum disaster types → per-type scenarios
@@ -181,8 +181,9 @@ OCR_BASE_URL=http://localhost:1234/v1
 OCR_API_KEY=not-needed
 OCR_MODEL=enginil/dots.mocr
 
-# browser-use Discovery fallback
-BROWSER_USE_HEADLESS=true
+# Discovery (Playwright + 実 Chrome) を visible で起動。
+# headless だと Google が reCAPTCHA を返して失敗するため visible 推奨。
+BROWSER_USE_HEADLESS=false
 
 # Cache root override (default: ./cache)
 SONAE_CACHE_DIR=
@@ -218,7 +219,7 @@ SONAE_CACHE_DIR=
   disaster_plan_page_url: <citing source page>
 ```
 
-`disaster_plan_url` short-circuits the browser-use Discovery layer. Use it
+`disaster_plan_url` short-circuits the Playwright Discovery layer. Use it
 whenever you have a stable URL — faster, deterministic, no Google ToS issues.
 
 ---
@@ -269,11 +270,12 @@ emergency, follow JMA / municipal authoritative information.**
 ### Known compliance debts
 
 - **Discovery fallback uses Google Search**: when a municipality has no
-  `disaster_plan_url` registry entry, the pipeline opens
-  `google.com/search` via browser-use. This violates Google's ToS for
-  programmatic access. Demo-target cities (Yokohama 14100, Kawasaki 14130,
-  …) all have registry entries, so the fallback never fires for them.
-  **Replacement plan**: Brave Search API or per-prefecture sitemap crawl.
+  `disaster_plan_url` registry entry, the pipeline opens `google.com/search`
+  via Playwright + the system Chrome (rebrowser-playwright で bot 検出を
+  回避)。 This violates Google's ToS for programmatic access. Demo-target
+  cities (Yokohama 14100, Kawasaki 14130, …) all have registry entries, so
+  the fallback never fires for them. **Replacement plan**: Brave Search API
+  or per-prefecture sitemap crawl.
 
 - **Model dependencies**: defaults are pinned to `gemma-4-e4b-it@q4_k_s`
   (LLM) and `enginil/dots.mocr` (OCR). Other OpenAI-compatible models work
