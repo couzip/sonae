@@ -13,7 +13,8 @@ describe('summarizeProfile', () => {
       },
       household: { composition: ['乳幼児', '高齢者'] },
     });
-    expect(r).toContain('築41年(1985年)');
+    const expectedAge = new Date().getFullYear() - 1985;
+    expect(r).toContain(`築${expectedAge}年(1985年)`);
     expect(r).toContain('木造');
     expect(r).toContain('所有');
     expect(r).toContain('2階建');
@@ -34,8 +35,10 @@ describe('summarizeProfile', () => {
   });
 
   it('部分入力: building の year_built だけ', () => {
-    const r = summarizeProfile({ building: { year_built: 2000 } });
-    expect(r).toBe('築26年(2000年)');
+    const year = 2000;
+    const expectedAge = new Date().getFullYear() - year;
+    const r = summarizeProfile({ building: { year_built: year } });
+    expect(r).toBe(`築${expectedAge}年(${year}年)`);
   });
 
   it('household.composition が空配列なら省略', () => {
