@@ -124,13 +124,22 @@ export function TreemapNode({
               <ul className="flex flex-col gap-3 overflow-y-auto leading-relaxed min-h-0">
                 {scenarios.map((s, i) => (
                   <li key={i} className="flex flex-col gap-1">
-                    <div className="flex items-baseline gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {s.scale && (
+                        <span
+                          className="inline-flex items-center text-xs font-mono tabular-nums px-2 py-0.5 rounded-cockpit border-hairline"
+                          style={{
+                            color: tone.text,
+                            borderColor: tone.border,
+                            backgroundColor: tone.fill,
+                          }}
+                        >
+                          {s.scale}
+                        </span>
+                      )}
                       <span className="text-sm text-ink font-sans">
                         {s.name ?? '想定シナリオ'}
                       </span>
-                      {s.scale && (
-                        <span className="text-xs text-ink-dim tabular-nums">{s.scale}</span>
-                      )}
                     </div>
                     {s.expected_damage && (
                       <p className="text-xs text-ink-mute leading-relaxed">{s.expected_damage}</p>
@@ -163,11 +172,20 @@ export function TreemapNode({
             ) : (
               <ul className="flex flex-col gap-1.5 overflow-y-auto text-sm leading-snug min-h-0">
                 {scenarios.map((s, i) => (
-                  <li key={i} className="flex items-baseline gap-2 truncate">
-                    <span className="text-ink truncate">{s.name ?? '想定シナリオ'}</span>
+                  <li key={i} className="flex items-center gap-2 truncate">
                     {s.scale && (
-                      <span className="text-xs text-ink-dim shrink-0 tabular-nums">{s.scale}</span>
+                      <span
+                        className="inline-flex items-center text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded-cockpit border-hairline shrink-0"
+                        style={{
+                          color: tone.text,
+                          borderColor: tone.border,
+                          backgroundColor: tone.fill,
+                        }}
+                      >
+                        {s.scale}
+                      </span>
                     )}
+                    <span className="text-ink truncate">{s.name ?? '想定シナリオ'}</span>
                   </li>
                 ))}
               </ul>
