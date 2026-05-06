@@ -169,13 +169,14 @@ ${md}
         });
         byType.push({ disaster_type: t, scenarios: ss });
         totalScenarios += ss.length;
-      } catch (e: any) {
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
         ctx.emit({
           type: 'log',
           phase: 'extract',
-          message: `  ${t}: 失敗 (${e?.message})`,
+          message: `  ${t}: 失敗 (${msg})`,
         });
-        byType.push({ disaster_type: t, scenarios: [], error: e?.message });
+        byType.push({ disaster_type: t, scenarios: [], error: msg });
       }
     }
     ctx.emit({

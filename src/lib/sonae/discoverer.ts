@@ -183,11 +183,12 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
             phase: 'discovery',
             message: `(PDF リンク無し → 次の候補へ)`,
           });
-        } catch (e: any) {
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
           ctx.emit({
             type: 'log',
             phase: 'discovery',
-            message: `(読み込み失敗: ${String(e?.message ?? e).slice(0, 80)})`,
+            message: `(読み込み失敗: ${msg.slice(0, 80)})`,
           });
         }
       }
@@ -396,11 +397,12 @@ pick_index に 0..${pdfs.length - 1} の整数で 1 件選び、reason に簡潔
         message: `LLM pick (${dt}s): "${pdfs[idx]!.label.slice(0, 50)}" - ${result.reason.slice(0, 80)}`,
       });
       return pdfs[idx]!;
-    } catch (e: any) {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
       ctx.emit({
         type: 'log',
         phase: 'discovery',
-        message: `LLM pick 失敗 (${String(e?.message ?? e).slice(0, 80)}) → 1 件目を採用`,
+        message: `LLM pick 失敗 (${msg.slice(0, 80)}) → 1 件目を採用`,
       });
       return pdfs[0]!;
     }
