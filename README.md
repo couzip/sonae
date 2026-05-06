@@ -110,15 +110,37 @@ pipeline:
 - **Step B (reduce)**: per disaster type, extract scenarios with name / scale / expected damage / source page (N parallel calls)
 - **Next actions**: generate priority actions with reasoning, urgency, and effort summary (1 call)
 
-### 3. Role-based model routing
+### 3. Native function calling for agentic RAG (post-evaluation chat)
+
+After the pipeline produces an assessment, residents can ask follow-up
+questions in a chat panel on the results screen. The chat model receives
+five tools (Vercel AI SDK `tool()` definitions, OpenAI-compatible `tools`
+wire format) and chains them across multiple steps:
+
+- `list_disaster_types` — enumerate disasters detected for the municipality
+- `get_disaster_scenarios(disaster_type)` — pull scenarios from the cached assessment
+- `search_disaster_plan(keywords[])` — character-bigram retrieval over the OCR markdown of the disaster plan (no embeddings, no vector store)
+- `list_countermeasures_for_disaster(disaster_type)` — filter the 74-item master
+- `lookup_countermeasure(id)` — fetch one countermeasure's why / how / references
+
+Each user question runs through `streamText` with `stopWhen: stepCountIs(8)`,
+so Gemma 4 freely picks tools, sees results, and decides whether to call
+more before composing the final answer. The retrieval substrate is
+deliberately embedding-free: an offline-capable bigram score over chunked
+markdown plus structured lookups against typed sources. This keeps the
+deployment single-binary (LM Studio + LiteLLM proxy) with no vector DB
+dependency.
+
+### 4. Role-based model routing
 
 A single resolver (`src/lib/sonae/llmRoles.ts`) picks a model per role:
-`main`, `discovery`, `toc`, `step_a`, `next_actions`, `ocr`. Each role falls
-back to the main model if not overridden. The reference setup pairs a local
-Gemma 4 4B (LM Studio, fast and free) for the bulk of calls with a larger
-Gemma 4 26B-A4B (via OpenRouter / LiteLLM proxy) for the precision-critical
-TOC selection and Step A enumeration. Anyone can swap any role to any
-OpenAI-compatible endpoint via a single env-var triple — no code change.
+`main`, `discovery`, `toc`, `step_a`, `next_actions`, `chat`, `ocr`. Each
+role falls back to the main model if not overridden. The reference setup
+pairs a local Gemma 4 4B (LM Studio, fast and free) for the bulk of calls
+with a larger Gemma 4 26B-A4B (via OpenRouter / LiteLLM proxy) for the
+precision-critical TOC selection, Step A enumeration, and chat tool
+selection. Anyone can swap any role to any OpenAI-compatible endpoint via a
+single env-var triple — no code change.
 
 ---
 
@@ -127,15 +149,18 @@ OpenAI-compatible endpoint via a single env-var triple — no code change.
 | Layer | Stack |
 |---|---|
 | LLM | Gemma 4 4B (LM Studio) for hot path · Gemma 4 26B-A4B (OpenRouter / LiteLLM) for precision tasks |
+| LLM client | Vercel AI SDK (`@ai-sdk/openai-compatible` + `generateObject` / `generateText` / `streamText`) |
+| Chat / tools | Vercel AI SDK `tool()` + `useChat` + `DefaultChatTransport`, agentic loop via `stopWhen: stepCountIs` |
 | Vision OCR | dots.mocr (or any OpenAI-compatible vision endpoint) |
 | Frontend | Next.js 15 (App Router) · TypeScript · Tailwind · Zustand |
 | Mapping | MapLibre GL JS · GSI (Geospatial Information Authority of Japan) tiles |
 | Pipeline | Custom 4-stage Pipeline (Discoverer / Retriever / Parser / Extractor) with 5 cache tiers |
+| Retrieval | Character-bigram cosine over chunked OCR markdown (no embedding, no vector DB) |
 | PDF | pdfjs-dist · @napi-rs/canvas |
 | Discovery | rebrowser-playwright + system Chrome |
-| Schemas | Zod · OpenAI-compatible JSON Schema |
-| Reporting | html2canvas + jsPDF (per-resident PDF report) |
-| Tests | Vitest (154+ tests across 24 files) · Prettier · ESLint · tsc strict |
+| Schemas | Zod (single source of truth — JSON Schema is derived by AI SDK) |
+| Reporting | html2canvas + jsPDF · react-markdown + remark-gfm (chat output) |
+| Tests | Vitest (163 tests across 25 files) · Prettier · ESLint · tsc strict |
 
 ### Architecture
 
@@ -232,13 +257,14 @@ panel credentials, cache root).
 
 Demo flow:
 
-1. Pick a location — GPS, address autocomplete, or map click
+1. Pick a location — GPS, address autocomplete, or map click; building info can be entered in the side panel right there so cache hits never skip the input timing
 2. Watch the pipeline stream progress (Discovery → Retrieval → TOC → OCR → Extract) over Server-Sent Events
 3. Review the disaster grid (treemap of detected disaster types, scaled by severity)
 4. Drill into any disaster type to see scenarios and source-page citations
-5. Fill in building / household / lifestyle profile (stays in `localStorage`)
+5. Fill in household / lifestyle profile (stays in `localStorage`)
 6. Get individually-tailored priority actions with reasoning
-7. Export a per-resident PDF report
+7. Ask follow-up questions in the chat panel — Gemma 4 picks among 5 RAG tools (plan search, scenario lookup, countermeasure lookup, …) and answers with citations
+8. Export a per-resident PDF report
 
 ---
 
@@ -266,7 +292,7 @@ municipalities already publish and what residents can practically use.
 |---|---|
 | **Impact & Vision** | Targets a well-defined survivor population (residents in 1,741 Japanese municipalities) with a measurable shift: from generic "stockpile" advice to per-resident Tier-1 hardening actions grounded in their city's own published risk |
 | **Video Pitch & Storytelling** | The cockpit UI is built to show the journey from coordinate → official PDF → expected-damage chapter → tailored action in under 90 seconds end-to-end |
-| **Technical Depth & Execution** | Reference-implementation framework with clean interface boundaries (`lib/core/` vs `lib/sonae/`), 154+ tests across 24 files, role-based LLM routing, 5-tier cache, multimodal OCR fallback, structured output via JSON Schema, full TypeScript strict mode, no `any` types, CI on Node 20.x + 22.x |
+| **Technical Depth & Execution** | Reference-implementation framework with clean interface boundaries (`lib/core/` vs `lib/sonae/`), 163 tests across 25 files, role-based LLM routing, 5-tier cache, multimodal OCR fallback, structured output (Zod-derived) for the deterministic pipeline, native function calling tools for the agentic chat (no embeddings; bigram retrieval over OCR markdown), full TypeScript strict mode, no `any` types, CI on Node 20.x + 22.x |
 
 ### Limitations
 
@@ -284,11 +310,11 @@ src/
 │   ├── core/                 # Framework (domain-agnostic, OSS-reusable)
 │   │   ├── Pipeline.ts          generic pipeline runner with cache layers
 │   │   ├── types.ts             Discoverer / Retriever / Parser / Extractor / Cache / Freshness
-│   │   ├── llm.ts               OpenAI-compatible client (chatJson + chatVision)
+│   │   ├── llm.ts               AI SDK facade (chatJson via Zod + chatVision + raw languageModel)
 │   │   ├── pdf.ts               pdfjs-dist wrappers (text extract + render via @napi-rs/canvas)
 │   │   ├── fileCache.ts         JsonFileCache / TextFileCache / BinaryFileCache / PathHandleCache
 │   │   ├── httpFreshness.ts     HEAD-based freshness checker
-│   │   ├── repairJson.ts        truncated-JSON recovery
+│   │   ├── repairJson.ts        truncated-JSON recovery (utility)
 │   │   ├── events.ts            ProgressEvent + EmitFn
 │   │   └── index.ts
 │   │
@@ -301,8 +327,9 @@ src/
 │   │   ├── countermeasures.ts   YAML loader for the 74-item countermeasure master
 │   │   ├── municipality.ts      municipalities.yaml registry
 │   │   ├── nextActions.ts       LLM call for strategic insights + priority actions
-│   │   ├── llmRoles.ts          role-based LLM resolver
-│   │   ├── schemas.ts           Zod + JSON schemas for all sonae outputs
+│   │   ├── chat.ts              5 RAG tools + system prompt for the post-evaluation chat
+│   │   ├── llmRoles.ts          role-based LLM resolver (main / discovery / toc / step_a / next_actions / chat / ocr)
+│   │   ├── schemas.ts           Zod schemas (single source of truth)
 │   │   ├── types.ts
 │   │   └── index.ts
 │   │
@@ -312,9 +339,12 @@ src/
 │   ├── treemap/squarify.ts         d3-hierarchy adapter
 │   └── utils.ts
 │
-├── components/               # UI (cockpit aesthetic)
+├── components/
+│   ├── chat/QueryBar.tsx        useChat-driven chat panel with tool-call rendering
+│   ├── screens/HomeShell.tsx    phase-aware top-page layout (BuildingForm side panel on pick)
+│   └── …                        cockpit primitives, treemap, profile forms, etc.
 ├── stores/                   # Zustand
-└── app/                      # Next.js App Router (5 screens + 4 API routes + admin)
+└── app/                      # Next.js App Router (5 screens + 5 API routes + admin)
 
 data/
 ├── countermeasures.yaml         # 74-item countermeasure master
@@ -336,6 +366,7 @@ examples/
 | `/api/disasters` | GET | run pipeline, stream SSE progress events |
 | `/api/checklist` | GET | filter the 74-item countermeasure master by detected disasters |
 | `/api/next-actions` | POST | profile + checklist state → strategic insights + priority actions |
+| `/api/ask` | POST | post-evaluation chat: `streamText` + 5 RAG tools, returns AI SDK UI message stream |
 | `/api/admin/*` | various | admin panel (auth-gated) |
 
 ### Adding a municipality
