@@ -6,7 +6,7 @@ import {
 } from '@/lib/sonae/admin/registry';
 import { inspectCache } from '@/lib/sonae/admin/cacheInspect';
 import { MunicipalitySchema } from '@/lib/sonae/schemas';
-import { z } from 'zod';
+import type { z } from 'zod';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

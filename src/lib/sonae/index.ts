@@ -30,7 +30,12 @@ export { DISASTER_TYPE_ENUM, NextActionsSchema } from './schemas';
 export type { SonaeBlob, SonaeParsed, SonaeQuery, SonaeSource } from './types';
 
 export { loadCountermeasures, filterByDetectedDisasters } from './countermeasures';
-export { generateNextActions, type NextActionsInput } from './nextActions';
+export {
+  generateNextActions,
+  normalizeChecklistStateForActions,
+  type NextActionsChecklistState,
+  type NextActionsInput,
+} from './nextActions';
 
 /**
  * The set of phase names emitted by the Sonae pipeline. Client UI consumers

@@ -31,6 +31,7 @@ export function NextActionsScreen() {
   const profileHousehold = useProfileStore((s) => s.household);
   const profileLifestyle = useProfileStore((s) => s.lifestyle);
 
+  const recommendationCode = useRecommendationsStore((s) => s.code);
   const status = useRecommendationsStore((s) => s.status);
   const result = useRecommendationsStore((s) => s.result);
   const error = useRecommendationsStore((s) => s.error);
@@ -39,6 +40,7 @@ export function NextActionsScreen() {
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
   const [stageIdx, setStageIdx] = useState(0);
   const [dots, setDots] = useState(1);
+  const municipalityCode = municipality?.code;
 
   useEffect(() => {
     if (status !== 'loading') return;
@@ -52,8 +54,8 @@ export function NextActionsScreen() {
     };
   }, [status]);
   useEffect(() => {
-    if (!municipality) return;
-    fetch(`/api/checklist?code=${encodeURIComponent(municipality.code)}`)
+    if (!municipalityCode) return;
+    fetch(`/api/checklist?code=${encodeURIComponent(municipalityCode)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { items: Countermeasure[] }) => {
         const m: Record<string, string> = {};
@@ -61,7 +63,7 @@ export function NextActionsScreen() {
         setLabelMap(m);
       })
       .catch(() => {});
-  }, [municipality?.code]);
+  }, [municipalityCode]);
 
   const checklistState = useMemo(() => {
     if (!municipality) return { completed: [], pending: [], not_applicable: [], unanswered: [] };
@@ -85,7 +87,7 @@ export function NextActionsScreen() {
 
   useEffect(() => {
     if (!municipality) return;
-    if (status === 'idle') {
+    if (status === 'idle' || recommendationCode !== municipality.code) {
       generate(
         municipality.code,
         municipality.name,
@@ -98,7 +100,7 @@ export function NextActionsScreen() {
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [municipality?.code]);
+  }, [municipality?.code, recommendationCode, status]);
 
   const retry = () =>
     municipality &&

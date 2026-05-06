@@ -6,7 +6,7 @@
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { Document, parseDocument, YAMLMap, YAMLSeq } from 'yaml';
+import { parseDocument, YAMLMap, YAMLSeq, type Document } from 'yaml';
 import { MunicipalitySchema, type Municipality } from '../schemas';
 import { invalidateRegistryCache, registryYamlPath } from '../municipality';
 
