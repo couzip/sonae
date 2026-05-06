@@ -34,6 +34,7 @@ interface StepBOut {
 
 export interface ExtractorOptions {
   llm: LlmClient;
+  stepALlm?: LlmClient;
 }
 
 export class SonaeMapReduceExtractor implements Extractor<
@@ -89,7 +90,8 @@ ${md}`;
       });
     }
     const t_a = Date.now();
-    const stepA = await this.opts.llm.chatJson<StepAOut>({
+    const stepALlm = this.opts.stepALlm ?? this.opts.llm;
+    const stepA = await stepALlm.chatJson<StepAOut>({
       prompt: stepAPrompt,
       responseFormat: STEP_A_JSON_SCHEMA,
       reasoningEffort: stepAEffort,

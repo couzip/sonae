@@ -179,6 +179,7 @@ let _pipelineFullOcr: SonaePipeline | null = null;
 
 let _llm: LlmClient | null = null;
 let _ocr: LlmClient | null = null;
+let _tocLlm: LlmClient | null = null;
 
 function getLlm(): LlmClient {
   if (!_llm) {
@@ -189,6 +190,39 @@ function getLlm(): LlmClient {
     });
   }
   return _llm;
+}
+
+function getTocLlm(): LlmClient {
+  if (!_tocLlm) {
+    const base = process.env.TOC_LLM_BASE_URL ?? process.env.LLM_BASE_URL;
+    if (!base) return getLlm();
+    _tocLlm = createLlmClient({
+      baseURL: base,
+      apiKey: process.env.TOC_LLM_API_KEY ?? process.env.LLM_API_KEY ?? 'not-needed',
+      model:
+        process.env.TOC_LLM_MODEL ??
+        process.env.LLM_MODEL ??
+        'gemma-4-e4b-it@q4_k_s',
+    });
+  }
+  return _tocLlm;
+}
+
+let _stepALlm: LlmClient | null = null;
+function getStepALlm(): LlmClient {
+  if (!_stepALlm) {
+    const base = process.env.STEP_A_LLM_BASE_URL ?? process.env.LLM_BASE_URL;
+    if (!base) return getLlm();
+    _stepALlm = createLlmClient({
+      baseURL: base,
+      apiKey: process.env.STEP_A_LLM_API_KEY ?? process.env.LLM_API_KEY ?? 'not-needed',
+      model:
+        process.env.STEP_A_LLM_MODEL ??
+        process.env.LLM_MODEL ??
+        'gemma-4-e4b-it@q4_k_s',
+    });
+  }
+  return _stepALlm;
 }
 
 function getOcr(): LlmClient {
@@ -242,6 +276,7 @@ function buildPipeline(mode: 'strict' | 'full_ocr_fallback'): SonaePipeline {
 
   const parser = new SonaeTocOcrParser({
     llm: getLlm(),
+    tocLlm: getTocLlm(),
     ocr: getOcr(),
     workDirFor: (code, sha256) => {
       const dir = join(root, 'work', `${code}_${sha256.slice(0, 12)}_${Date.now()}`);
@@ -251,7 +286,10 @@ function buildPipeline(mode: 'strict' | 'full_ocr_fallback'): SonaePipeline {
     mode,
   });
 
-  const extractor = new SonaeMapReduceExtractor({ llm: getLlm() });
+  const extractor = new SonaeMapReduceExtractor({
+    llm: getLlm(),
+    stepALlm: getStepALlm(),
+  });
 
   return new Pipeline<
     SonaeQuery,

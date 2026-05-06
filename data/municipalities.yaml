@@ -124,3 +124,100 @@
   lat: 34.070091
   lng: 134.554703
   name_aliases: [ 徳島市 ]
+
+# 政令指定都市 親市 (区→親市フォールバック用)
+- code: '01100'
+  name: 札幌市
+  prefecture: 北海道
+  prefecture_code: '01'
+  lat: 43.0617
+  lng: 141.3544
+  name_aliases: [ 札幌市, さっぽろ市 ]
+
+- code: '04100'
+  name: 仙台市
+  prefecture: 宮城県
+  prefecture_code: '04'
+  lat: 38.2682
+  lng: 140.8694
+  name_aliases: [ 仙台市, せんだい市 ]
+
+- code: '15100'
+  name: 新潟市
+  prefecture: 新潟県
+  prefecture_code: '15'
+  lat: 37.9026
+  lng: 139.0234
+  name_aliases: [ 新潟市, にいがた市 ]
+
+- code: '22130'
+  name: 浜松市
+  prefecture: 静岡県
+  prefecture_code: '22'
+  lat: 34.7108
+  lng: 137.7261
+  name_aliases: [ 浜松市, はままつ市 ]
+
+- code: '23100'
+  name: 名古屋市
+  prefecture: 愛知県
+  prefecture_code: '23'
+  lat: 35.1815
+  lng: 136.9066
+  name_aliases: [ 名古屋市, なごや市 ]
+
+- code: '26100'
+  name: 京都市
+  prefecture: 京都府
+  prefecture_code: '26'
+  lat: 35.0116
+  lng: 135.7681
+  name_aliases: [ 京都市, きょうと市 ]
+
+- code: '27140'
+  name: 堺市
+  prefecture: 大阪府
+  prefecture_code: '27'
+  lat: 34.5733
+  lng: 135.4830
+  name_aliases: [ 堺市, さかい市 ]
+
+- code: '28100'
+  name: 神戸市
+  prefecture: 兵庫県
+  prefecture_code: '28'
+  lat: 34.6901
+  lng: 135.1955
+  name_aliases: [ 神戸市, こうべ市 ]
+
+- code: '33100'
+  name: 岡山市
+  prefecture: 岡山県
+  prefecture_code: '33'
+  lat: 34.6618
+  lng: 133.9344
+  name_aliases: [ 岡山市, おかやま市 ]
+
+- code: '34100'
+  name: 広島市
+  prefecture: 広島県
+  prefecture_code: '34'
+  lat: 34.3853
+  lng: 132.4553
+  name_aliases: [ 広島市, ひろしま市 ]
+
+- code: '40100'
+  name: 北九州市
+  prefecture: 福岡県
+  prefecture_code: '40'
+  lat: 33.8835
+  lng: 130.8752
+  name_aliases: [ 北九州市, きたきゅうしゅう市 ]
+
+- code: '40130'
+  name: 福岡市
+  prefecture: 福岡県
+  prefecture_code: '40'
+  lat: 33.5904
+  lng: 130.4017
+  name_aliases: [ 福岡市, ふくおか市 ]

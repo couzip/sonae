@@ -261,41 +261,37 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
    */
   private async extractTopResults(page: Page): Promise<string[]> {
     return await page.evaluate(() => {
-      const seen = new Set<string>();
+      const seen: Record<string, boolean> = {};
       const out: string[] = [];
-      const addUrl = (raw: string) => {
-        if (!raw) return;
-        if (seen.has(raw)) return;
+      const candidates: string[] = [];
+      const h3s = document.querySelectorAll('h3');
+      for (let i = 0; i < h3s.length; i++) {
+        const a = h3s[i].closest('a[href]') as HTMLAnchorElement | null;
+        if (a) candidates.push(a.href);
+      }
+      const fallback = document.querySelectorAll('.yuRUbf > a[href], .tF2Cxc a[href]');
+      for (let i = 0; i < fallback.length; i++) {
+        candidates.push((fallback[i] as HTMLAnchorElement).href);
+      }
+      for (let i = 0; i < candidates.length; i++) {
+        const raw = candidates[i];
+        if (!raw || seen[raw]) continue;
         try {
           const u = new URL(raw, 'https://www.google.com/');
-          // Google ドメインは検索/設定リンクなので除外
           if (
             u.hostname.endsWith('.google.com') ||
             u.hostname === 'google.com' ||
             u.hostname.endsWith('.googleusercontent.com')
           ) {
-            return;
+            continue;
           }
-          if (u.protocol !== 'http:' && u.protocol !== 'https:') return;
-          seen.add(raw);
+          if (u.protocol !== 'http:' && u.protocol !== 'https:') continue;
+          seen[raw] = true;
           out.push(u.href);
         } catch {
           /* skip invalid */
         }
-      };
-
-      // (a) <h3> の祖先 <a> を辿る (organic result 標準)
-      const h3s = document.querySelectorAll('h3');
-      h3s.forEach((h3) => {
-        const a = h3.closest('a[href]') as HTMLAnchorElement | null;
-        if (a) addUrl(a.href);
-      });
-      // (b) Google の result 用コンテナ class を試す
-      const fallback = document.querySelectorAll('.yuRUbf > a[href], .tF2Cxc a[href]');
-      fallback.forEach((el) => {
-        const a = el as HTMLAnchorElement;
-        addUrl(a.href);
-      });
+      }
       return out;
     });
   }
@@ -372,7 +368,7 @@ export class SonaeDiscoverer implements Discoverer<SonaeQuery, SonaeSource> {
 - 全災害種別を網羅、または被害想定を含む
 
 ## 除外 (本編ではない)
-- **「表紙」「目次」「表紙・目次」「目次のみ」** → 表紙や目次しか入っていない分冊。被害想定の数値や本文は無いので絶対に選ばない
+- **表紙・目次しか入っていない分冊** (例: ラベルが「表紙」「目次」「表紙・目次」のみ)。ただし 「表紙・目次・共通編」 のように本文 (共通編/総則/計画編/対策編 等) を併記している場合は本文を含むので除外しない
 - 「修正の概要」「新旧対照」「変更点」「差分」「改定の概要」 → 改訂差分
 - 「資料編」「様式集」「校区」「地区」「水防」「避難計画」 → 付属資料・付録
 - 災害応急対策 / 応急対応 / 災害復旧 / 復興 → 発災後の対応マニュアルで被害想定は含まれない

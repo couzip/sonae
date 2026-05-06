@@ -78,6 +78,7 @@ function chandraHtmlToMarkdown(s: string): string {
 export interface ParserOptions {
   llm: LlmClient;
   ocr: LlmClient;
+  tocLlm?: LlmClient;
   /**
    * Build a workspace directory for ephemeral artifacts (TOC.md, page PNGs,
    * intermediate OCR markdown). Receives the municipality code and the PDF
@@ -176,6 +177,10 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
           message: `フル一致 0 件 → コア "${matchedKeyword}" で再検索`,
         });
       }
+    }
+    if (section.logical_start_page > 0) {
+      const aboveLogical = candidates.filter((p) => p >= section.logical_start_page);
+      if (aboveLogical.length > 0) candidates = aboveLogical;
     }
     ctx.emit({
       type: 'log',
@@ -325,7 +330,7 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
 
     const titleNorm = norm(section.title);
     const coreNorm = norm(coreTitle(section.title));
-    const candidates: number[] = [];
+    let candidates: number[] = [];
     let matchedKeyword = section.title;
     for (const p of allPageNums) {
       const tn = norm(ocrCache.get(p) || '');
@@ -344,6 +349,10 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
           message: `フル一致 0 件 → コア "${matchedKeyword}" で再検索`,
         });
       }
+    }
+    if (section.logical_start_page > 0) {
+      const aboveLogical = candidates.filter((p) => p >= section.logical_start_page);
+      if (aboveLogical.length > 0) candidates = aboveLogical;
     }
     ctx.emit({
       type: 'phase',
@@ -409,7 +418,9 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
 
   private findTitleHeading(text: string, keywordsNorm: string[]): string | null {
     const ks = keywordsNorm.filter((k) => k.length > 0);
-    for (const line of text.split('\n')) {
+    const lines = text.split('\n');
+
+    for (const line of lines) {
       const m = line.match(/^#{1,4}\s+(.+?)\s*$/);
       if (!m) continue;
       const hn = norm(m[1]);
@@ -417,13 +428,27 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
         if (hn.includes(k) || k.includes(hn)) return m[1].trim();
       }
     }
+
+    for (const raw of lines.slice(0, 20)) {
+      const candidate = raw
+        .trim()
+        .replace(/^\*\*(.+?)\*\*$/, '$1')
+        .replace(/^__(.+?)__$/, '$1')
+        .trim();
+      if (candidate.length < 6) continue;
+      const hn = norm(candidate);
+      for (const k of ks) {
+        if (hn.includes(k) || k.includes(hn)) return candidate;
+      }
+    }
+
     return null;
   }
 
   private async findTargetSection(
     tocMarkdown: string,
     ctx: PipelineContext,
-  ): Promise<{ title: string; page_count: number } | null> {
+  ): Promise<{ title: string; page_count: number; logical_start_page: number } | null> {
     const prompt = `以下は地域防災計画の目次をテキスト抽出したものです。
 「被害想定」(または同義: 想定する災害, 予想される災害, 被害推計など) を1つだけ選び、
 TOC 上の開始ページと、終了ページを返してください。
@@ -440,7 +465,8 @@ TOC 上の開始ページと、終了ページを返してください。
 ${tocMarkdown}
 --- 目次ここまで ---`;
 
-    const parsed = await this.opts.llm.chatJson<TocSelection>({
+    const llm = this.opts.tocLlm ?? this.opts.llm;
+    const parsed = await llm.chatJson<TocSelection>({
       prompt,
       responseFormat: TOC_JSON_SCHEMA,
     });
@@ -463,6 +489,6 @@ ${tocMarkdown}
       phase: 'toc',
       message: `目次から抽出: "${title}" 論理P${start}-P${end} (${page_count}p)`,
     });
-    return { title, page_count };
+    return { title, page_count, logical_start_page: start };
   }
 }
