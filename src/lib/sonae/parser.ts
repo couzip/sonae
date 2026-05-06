@@ -43,6 +43,36 @@ const norm = (s: string) =>
  * "第2 災害の想定" vs "２.災害の想定" のような表記揺れに対応するため、
  * フル一致が失敗した時にコアで再検索する。
  */
+// markdown heading が無い OCR 出力のために、bold / 裸テキスト heading の fallback も走らせる。
+export function findTitleHeading(text: string, keywordsNorm: string[]): string | null {
+  const ks = keywordsNorm.filter((k) => k.length > 0);
+  const lines = text.split('\n');
+
+  for (const line of lines) {
+    const m = line.match(/^#{1,4}\s+(.+?)\s*$/);
+    if (!m) continue;
+    const hn = norm(m[1]);
+    for (const k of ks) {
+      if (hn.includes(k) || k.includes(hn)) return m[1].trim();
+    }
+  }
+
+  for (const raw of lines.slice(0, 20)) {
+    const candidate = raw
+      .trim()
+      .replace(/^\*\*(.+?)\*\*$/, '$1')
+      .replace(/^__(.+?)__$/, '$1')
+      .trim();
+    if (candidate.length < 6) continue;
+    const hn = norm(candidate);
+    for (const k of ks) {
+      if (hn.includes(k) || k.includes(hn)) return candidate;
+    }
+  }
+
+  return null;
+}
+
 function coreTitle(title: string): string {
   let s = title;
   // 「第N章/節/項/編/部」「第N」 (章/節/項/編/部 省略可) を剥がす
@@ -417,32 +447,7 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
   }
 
   private findTitleHeading(text: string, keywordsNorm: string[]): string | null {
-    const ks = keywordsNorm.filter((k) => k.length > 0);
-    const lines = text.split('\n');
-
-    for (const line of lines) {
-      const m = line.match(/^#{1,4}\s+(.+?)\s*$/);
-      if (!m) continue;
-      const hn = norm(m[1]);
-      for (const k of ks) {
-        if (hn.includes(k) || k.includes(hn)) return m[1].trim();
-      }
-    }
-
-    for (const raw of lines.slice(0, 20)) {
-      const candidate = raw
-        .trim()
-        .replace(/^\*\*(.+?)\*\*$/, '$1')
-        .replace(/^__(.+?)__$/, '$1')
-        .trim();
-      if (candidate.length < 6) continue;
-      const hn = norm(candidate);
-      for (const k of ks) {
-        if (hn.includes(k) || k.includes(hn)) return candidate;
-      }
-    }
-
-    return null;
+    return findTitleHeading(text, keywordsNorm);
   }
 
   private async findTargetSection(
