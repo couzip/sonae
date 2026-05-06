@@ -39,6 +39,10 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
   });
 
   const labelOf = (id: string): string => countermeasures.find((c) => c.id === id)?.label ?? id;
+  // 旧キャッシュなど LLM が user-facing テキストに action_id を漏らした場合の最終 strip
+  const ID_PAREN_RE = /[（(]\s*[a-z][a-z0-9]*(?:_[a-z0-9]+)+\s*[）)]/g;
+  const stripIds = (s: string): string =>
+    s.replace(ID_PAREN_RE, '').replace(/\s+([、。])/g, '$1').trim();
 
   const activeDisasters = result.by_disaster_type.filter((d) => d.scenarios.length > 0);
 
@@ -181,9 +185,9 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
                   {URGENCY_LABEL[a.urgency]}
                 </div>
               </div>
-              <div style={{ color: '#334155', marginTop: 4 }}>{a.reasoning}</div>
+              <div style={{ color: '#334155', marginTop: 4 }}>{stripIds(a.reasoning)}</div>
               <div style={{ color: '#64748b', fontSize: '10px', marginTop: 4 }}>
-                {a.effort_summary}
+                {stripIds(a.effort_summary)}
               </div>
             </div>
           ))}
@@ -206,7 +210,7 @@ export const PrintReport = forwardRef<HTMLDivElement, PrintReportProps>(function
           <ul style={{ paddingLeft: 18, margin: 0 }}>
             {nextActions.long_term_considerations.map((c, i) => (
               <li key={i} style={{ marginBottom: 4 }}>
-                {c}
+                {stripIds(c)}
               </li>
             ))}
           </ul>

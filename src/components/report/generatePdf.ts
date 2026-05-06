@@ -16,23 +16,31 @@ export async function generateReportPdf(element: HTMLElement, filename: string):
   const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
+
+  // 上下に余白を入れることで、ページ境界に文字が掛かって見切れるのを軽減する。
+  const MARGIN_TOP = 24;
+  const MARGIN_BOTTOM = 24;
+  const usableHeight = pageHeight - MARGIN_TOP - MARGIN_BOTTOM;
+  // 連続ページの境界で行が真っ二つになるのを緩和するため、各ページに少し overlap を持たせる。
+  const OVERLAP_PT = 12;
+
   const imgWidth = pageWidth;
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-  if (imgHeight <= pageHeight) {
+  if (imgHeight <= usableHeight) {
     pdf.addImage(
       canvas.toDataURL('image/jpeg', 0.92),
       'JPEG',
       0,
-      0,
+      MARGIN_TOP,
       imgWidth,
       imgHeight,
       undefined,
       'FAST',
     );
   } else {
-    // 高さがページを超えるので、canvas を縦に切り出してページ毎に貼る
-    const sliceHeightPx = (pageHeight * canvas.width) / pageWidth;
+    const sliceHeightPx = (usableHeight * canvas.width) / pageWidth;
+    const overlapPx = (OVERLAP_PT * canvas.width) / pageWidth;
     let y = 0;
     let pageIndex = 0;
     while (y < canvas.height) {
@@ -50,13 +58,15 @@ export async function generateReportPdf(element: HTMLElement, filename: string):
         sliceCanvas.toDataURL('image/jpeg', 0.92),
         'JPEG',
         0,
-        0,
+        MARGIN_TOP,
         imgWidth,
         (h * imgWidth) / canvas.width,
         undefined,
         'FAST',
       );
-      y += h;
+      // 次ページの先頭は overlap 分だけ巻き戻して描画開始 (境界行の重複表示)
+      y += h - overlapPx;
+      if (h < sliceHeightPx) break;
       pageIndex += 1;
     }
   }
