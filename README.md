@@ -1,5 +1,7 @@
 # Sonae — Gemma 4 Good Hackathon Submission
 
+![Sonae cover](docs/cover.png)
+
 > **Pre-disaster preparedness, in a cockpit.**
 > *While other apps respond to disasters, Sonae prepares you for them.*
 
