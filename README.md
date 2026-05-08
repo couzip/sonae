@@ -275,8 +275,8 @@ the per-role env vars to whichever provider you use.
 ### Install and run
 
 ```bash
-git clone <repo>
-cd app
+git clone https://github.com/couzip/sonae.git
+cd sonae
 npm install                       # postinstall fetches Playwright Chromium
 cp .env.example .env              # tune endpoints if needed
 
