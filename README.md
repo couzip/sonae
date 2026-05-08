@@ -8,17 +8,20 @@
 
 ## Overview
 
-Sonae is a Next.js + TypeScript app that resolves a Japanese municipality
-from a GPS coordinate, address, or map click, downloads that city's
-official regional disaster plan PDF, OCRs the expected-damage section, and
-asks Gemma 4 to produce countermeasure recommendations adjusted to the
-user's building age, household composition, and location.
+**Sonae turns unread municipal disaster PDFs into personal survival actions.**
 
-It is also an OSS reference implementation of a more general pattern:
-small LLMs + structured extraction + scattered public sources. The same
-Pipeline runs the disaster app and the `examples/news-summarizer/` example
-(HTTP + HTML + LLM, no PDF / OCR), demonstrating the framework's
-domain-independence in code rather than only in description.
+Japan's local governments already publish detailed disaster-risk plans, but
+they are usually buried inside 100–500 page PDFs. Sonae resolves a user's
+municipality, extracts the expected-damage section from the official plan,
+and uses Gemma 4 to convert that public information into prioritized
+actions fitted to the user's home, household, and location.
+
+Under the hood it is a Next.js + TypeScript app and an OSS reference
+implementation of a more general pattern: small LLMs + structured
+extraction + scattered public sources. The same Pipeline runs the disaster
+app and the `examples/news-summarizer/` example (HTTP + HTML + LLM, no PDF
+/ OCR), demonstrating the framework's domain-independence in code rather
+than only in description.
 
 > ⚠ **Sonae is a working prototype, not a production system. In an actual
 > emergency, follow JMA and municipal authoritative information first.**
@@ -79,15 +82,18 @@ because pre-event hardening has the largest effect on survival.
 
 ## Privacy
 
-The pipeline is built so that, by default, no personal data leaves the
-user's device — and on-device inference is supported end-to-end so the
-default can be made strict.
+The pipeline is designed so that no account-level identity or long-term
+personal profile is stored on the server. In local / offline deployments
+where the LLM and OCR endpoints point at on-device models, the profile
+never leaves the user's machine. In hosted deployments where those
+endpoints point at a remote service, the profile is sent to that endpoint
+over the wire as part of the prompt — that is the operator's deployment
+choice, not a hidden behaviour.
 
 - **Profile (building age, household composition, lifestyle) is stored
   only in browser `localStorage`.** It is never persisted on the server.
   It is read into memory only when `/api/next-actions` is called, and is
-  forwarded only to the LLM endpoint configured by the operator (which can
-  be local).
+  forwarded only to the LLM endpoint configured by the operator.
 - **No user accounts, no signup, no email collected.** There is no
   identity layer.
 - **No third-party analytics, no tracking scripts, no advertising SDKs.**
@@ -100,11 +106,11 @@ default can be made strict.
 - **Public sources only.** The pipeline only fetches the official
   municipal disaster plan, which is public information published by the
   municipality.
-- **On-device inference end-to-end.** Pointing the LLM and OCR endpoints
-  at a local Gemma 4 4B + a local vision model (LM Studio, Ollama, vLLM,
-  …) means the user profile is processed without any data leaving the
-  device, and the app remains usable during a network outage — exactly
-  when a disaster-preparedness tool needs to keep working.
+- **On-device inference is supported (operator opt-in).** Pointing the LLM
+  and OCR endpoints at a local Gemma 4 4B + a local vision model
+  (LM Studio, Ollama, vLLM, …) keeps the user profile on the machine and
+  keeps the app usable during a network outage — exactly when a
+  disaster-preparedness tool needs to keep working.
 - **`/admin` is auth-gated and disabled by default.** The admin panel
   returns 503 when admin credentials are not set.
 
@@ -122,9 +128,10 @@ run on any chat completion endpoint. Gemma 4 was chosen for three reasons
 that other options (proprietary cloud APIs, smaller open models) don't
 satisfy together:
 
-1. **Apache 2.0 license**. Outputs are unrestricted, which matters for an
-   app that prints recommendations into a PDF a resident may share or
-   archive. Most cloud APIs put usage restrictions on outputs.
+1. **Apache 2.0 license**. Unlike many hosted APIs, an Apache 2.0 open
+   model gives deployers clearer control over redistribution,
+   infrastructure, and offline use — which matters for an app that prints
+   recommendations into a PDF a resident may share or archive.
 2. **On-device viable**. Gemma 4 4B runs locally on consumer hardware. A
    disaster-preparedness tool that requires an internet round-trip during a
    network outage is a contradiction; on-device inference keeps the app
