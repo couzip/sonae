@@ -334,6 +334,69 @@ Demo flow:
 
 ---
 
+## Validation
+
+The pipeline has been run end-to-end against **49 Japanese municipalities**
+to date, with cache artifacts (`pdfs/`, `ocr/`, `municipalities/`) preserved
+on disk. The table below samples nine, weighted toward the **Nankai Trough
+corridor** (Shizuoka, Aichi, Mie, Tokushima, Kōchi) plus a mixed-PDF outlier
+(Fujiyoshida).
+
+| Code | Municipality | Region | PDF KB | Section pp. | OCR pp. | OCR chars | Disaster types | Cached rerun (ms, n=3) | Manual check |
+|---|---|---|---:|---:|---:|---:|---:|---:|---|
+| 14100 | Yokohama | Sagami Trough | 1,832 | 2 | 2 | 2,526 | 17 | 181 | ok |
+| 22100 | Shizuoka | Suruga Bay / Nankai | 7,991 | 6 | 6 | 6,130 | 19 | 151 | ok |
+| 22139 | Hamamatsu (Hamana ward) | Nankai | 4,763 | 13 | 13 | 62,852 | 12 | 160 | ok (TOC-only inference) |
+| 22203 | Numazu | Suruga Bay | 3,060 | 4 | 4 | 4,142 | 4 | 194 | **under-extracted** |
+| 23201 | Toyohashi | Ise Bay / Nankai | 530 | 2 | 2 | 1,386 | 5 | 215 | ok |
+| 24201 | Tsu | Ise Bay / Nankai | 9,378 | 1 | 1 | 277 | 5 | 183 | ok |
+| 39201 | Kōchi | Nankai (direct) | 2,959 | 2 | 2 | 1,545 | 7 | 152 | ok |
+| 36201 | Tokushima | Nankai | 14,170 | 21 | 21 | 18,334 | 3 | 219 | **suspected over-extraction** |
+| 19202 | Fujiyoshida | Mt. Fuji eruption zone | 240 | 7 | 5 (mixed) | 4,726 | 3 | 282 | ok (TOC-only inference) |
+
+**What this shows:**
+
+- **OCR is the main path, not a fallback.** 48 of the 49 municipalities had
+  no usable text layer in the expected-damage section and required Gemma 4
+  multimodal vision OCR. Fujiyoshida is the only mixed case in the sample
+  (5 of 7 pages were OCR'd, the rest read directly).
+- **Pipeline scope is wide.** PDF sizes 240 KB → 14 MB, OCR output 277 →
+  62,852 characters per municipality, detected disaster types 3 → 19. The
+  OCR + structured-output stages absorb that variance without per-city
+  tuning.
+- **Cached rerun is sub-300 ms.** Once a plan is processed, the result JSON
+  sits in `cache/municipalities/{code}.json`; the SSE pipeline emits
+  `cache_hit` and returns the full assessment in 150-300 ms (mean of three
+  runs, against a local Next.js server). The LLM is on the cold path only.
+- **Manual check: 7 / 9 ok, 2 / 9 problems found.** Each municipality's
+  extracted `disaster_type` set was diffed against the OCR'd source text.
+  Two cases are recorded honestly here rather than hidden:
+  - **22203 Numazu (under-extracted).** The source plan lists 9 disaster
+    categories (wind/flood, storm surge, **earthquake & tsunami**, landslide,
+    **fire & explosion**, drowning, traffic, **volcanic**, compound). Sonae
+    only extracted the 4 wind/flood-class entries; earthquake/tsunami,
+    landslide, fire, and volcanic were missed. This is a Step-A enumeration
+    regression and is exactly the kind of failure the table is meant to
+    surface.
+  - **36201 Tokushima (suspected over-extraction).** The 21-page section is
+    dominated by Nankai Trough earthquake / tsunami damage estimates;
+    "volcanic eruption" appears in the Sonae output but cannot be confirmed
+    in the OCR text we have. Likely a model hallucination on a sparsely
+    populated category, not a critical failure.
+- **What this method does *not* prove.** Section coverage was checked by
+  reading the OCR'd "expected damage" chapter, not every page of every plan.
+  A municipality that catalogs hazards in a different chapter (e.g., a
+  separate earthquake-only document) might still have items missed upstream
+  of the section selector. Closing that gap is on the post-submission list.
+
+The 49-municipality cache is reproducible: `data/municipalities.yaml` seeds
+the registry, the LLM endpoints are env-configurable, and
+`/admin/municipalities/{code}` re-runs any city's pipeline in strict or
+full-OCR mode. Two helper scripts in `scripts/` (`inspect-cache.mjs` and
+`measure-cached-rerun.mjs`) regenerate the table data from the on-disk cache.
+
+---
+
 ## Impact & Evaluation
 
 ### Why this matters
