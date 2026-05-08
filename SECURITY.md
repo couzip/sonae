@@ -6,9 +6,10 @@ If you discover a security vulnerability in Sonae, please **do not** open a
 public GitHub issue. Instead, report it privately so we can fix and
 coordinate disclosure.
 
-- Email: replace with a real address before first public release
-- Subject prefix: `[Sonae security]`
-- Expected response time: 5 business days for acknowledgement
+- **Preferred channel**: [GitHub private Security Advisory](https://github.com/couzip/sonae/security/advisories/new)
+  (Security tab → "Report a vulnerability"). The report stays private until
+  a fix is coordinated.
+- Expected response time: 5 business days for acknowledgement.
 
 When reporting, please include:
 

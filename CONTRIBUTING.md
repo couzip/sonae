@@ -10,8 +10,8 @@ If you're here for the framework / pipeline pattern (not the disaster domain), s
 ## Development setup
 
 ```bash
-git clone <fork>
-cd app
+git clone https://github.com/couzip/sonae.git    # or your fork URL
+cd sonae
 npm install
 # postinstall installs Playwright Chromium; skip with `npm install --ignore-scripts`
 # if you only need the framework parts.
@@ -86,5 +86,7 @@ deterministic, faster, and doesn't depend on Google search availability.
 
 ## Reporting a security issue
 
-Please email <security@example.org> rather than filing a public issue. The repo will
-be updated with a real address before the first public release.
+Please use [GitHub's private Security Advisory flow](https://github.com/couzip/sonae/security/advisories/new)
+(Security tab → "Report a vulnerability") instead of filing a public issue. The
+report stays private until a fix is coordinated. See [`SECURITY.md`](SECURITY.md)
+for the full policy.

@@ -9,8 +9,8 @@ long-lived Node host instead.
 ## Self-hosted Node (recommended)
 
 ```bash
-git clone <repo>
-cd app
+git clone https://github.com/couzip/sonae.git
+cd sonae
 npm ci
 # Skip Playwright Chromium if you only use registry-driven Discovery:
 #   npm ci --ignore-scripts
