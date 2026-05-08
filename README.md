@@ -24,14 +24,6 @@ domain-independence in code rather than only in description.
 > ⚠ **Sonae is a working prototype, not a production system. In an actual
 > emergency, follow JMA and municipal authoritative information first.**
 
-| Item | Value |
-|---|---|
-| Track | Global Resilience |
-| Hackathon | [Kaggle: The Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon) |
-| Submission deadline | May 18, 2026 |
-| Models | Gemma 4 4B (most calls), Gemma 4 26B-A4B (precision roles), a vision model for OCR — any OpenAI-compatible endpoint, local or remote |
-| License | MIT |
-
 ---
 
 ## The Challenge
