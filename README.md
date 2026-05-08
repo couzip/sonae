@@ -354,7 +354,7 @@ corridor** (Shizuoka, Aichi, Mie, Tokushima, Kōchi) plus a mixed-PDF outlier
 | 36201 | Tokushima | Nankai | 14,170 | 21 | 21 | 18,334 | 3 | 219 | **suspected over-extraction** |
 | 19202 | Fujiyoshida | Mt. Fuji eruption zone | 240 | 7 | 5 (mixed) | 4,726 | 3 | 282 | ok (TOC-only inference) |
 
-**What this shows:**
+### What this shows
 
 - **OCR is the main path, not a fallback.** 48 of the 49 municipalities had
   no usable text layer in the expected-damage section and required Gemma 4
