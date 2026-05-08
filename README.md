@@ -135,8 +135,8 @@ satisfy together:
 2. **On-device viable**. Gemma 4 4B runs locally on consumer hardware. A
    disaster-preparedness tool that requires an internet round-trip during a
    network outage is a contradiction; on-device inference keeps the app
-   useful in the situation it is preparing the user for, and keeps the user
-   profile from ever leaving the device.
+   useful in the situation it is preparing the user for, and can keep the
+   user profile from ever leaving the device.
 3. **Size variations in the same family**. The 4B and 26B-A4B variants
    share a tokenizer and prompt style, so the same prompts work across
    sizes. Sonae uses 4B for the high-volume calls (Step B per-disaster
