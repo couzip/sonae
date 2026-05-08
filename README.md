@@ -309,7 +309,6 @@ panel credentials, cache root).
 
 > **Video walkthrough**: <https://www.youtube.com/watch?v=x13MlYLpE60>
 > **Kaggle writeup**: <https://www.kaggle.com/competitions/gemma-4-good-hackathon/writeups/sonae-survive-before-it-strikes>
-> **Live demo**: _linked at submission_
 
 ### Screenshots
 
