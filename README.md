@@ -300,9 +300,23 @@ panel credentials, cache root).
 
 ## Demo & Screenshots
 
+> **Video walkthrough**: <https://www.youtube.com/watch?v=x13MlYLpE60>
+> **Kaggle writeup**: <https://www.kaggle.com/competitions/gemma-4-good-hackathon/writeups/sonae-survive-before-it-strikes>
 > **Live demo**: _linked at submission_
-> **Video walkthrough (90 s)**: _linked at submission_
-> **Kaggle writeup notebook**: _linked at submission_
+
+### Screenshots
+
+**1. Place picker — pick your location, fill in your building**
+
+![Place picker with building form](docs/screenshots/01-place-picker.png)
+
+**2. Disaster grid — what your municipality says will happen**
+
+![Disaster treemap with checklist panel](docs/screenshots/02-disaster-grid.png)
+
+**3. Next actions — priority recommendations fitted to your profile**
+
+![Priority actions screen](docs/screenshots/03-next-actions.png)
 
 Demo flow:
 
