@@ -37,7 +37,7 @@ export function PlacePickerScreen() {
               type="button"
               disabled={!municipality}
               onClick={() => setPhase('research')}
-              className="disabled:opacity-30 disabled:cursor-not-allowed border-hairline border-accent bg-accent-soft hover:bg-accent-dim px-6 py-3 rounded-cockpit transition-colors text-accent"
+              className="disabled:opacity-30 disabled:cursor-not-allowed disabled:bg-accent-soft disabled:text-accent border-hairline border-accent bg-accent text-bg-sunken hover:brightness-110 px-6 py-3 rounded-cockpit transition-all font-semibold"
             >
               この場所で開始
             </button>
