@@ -1,9 +1,8 @@
-# Sonae — Gemma 4 Good Hackathon Submission
+# Sonae
 
 ![Sonae cover](docs/cover.jpg)
 
-> **Pre-disaster preparedness, in a cockpit.**
-> *While other apps respond to disasters, Sonae prepares you for them.*
+> *Pre-disaster preparedness, fitted to your block and household.*
 
 ---
 
@@ -389,7 +388,7 @@ src/
 ├── components/
 │   ├── chat/QueryBar.tsx        useChat-driven chat panel with tool-call rendering
 │   ├── screens/HomeShell.tsx    phase-aware top-page layout (BuildingForm side panel on pick)
-│   └── …                        cockpit primitives, treemap, profile forms, etc.
+│   └── …                        HUD primitives, treemap, profile forms, etc.
 ├── stores/                   # Zustand
 └── app/                      # Next.js App Router (5 screens + 5 API routes + admin)
 

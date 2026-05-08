@@ -2,7 +2,7 @@
   "name": "sonae",
   "version": "0.1.0",
   "private": true,
-  "description": "Sonae — Pre-disaster preparedness cockpit. Built for Gemma 4 Good Hackathon.",
+  "description": "Sonae — Survive before it strikes. Pre-disaster preparedness grounded in your city's own published forecasts. Built for Gemma 4 Good Hackathon.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

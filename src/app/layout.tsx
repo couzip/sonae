@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Sonae — 事前の備えを、コックピットで。',
+  title: 'Sonae — その日の前にしか、できないことがある。',
   description:
-    '災害が起きる前に動く防災コックピット。自治体の地域防災計画から想定災害を解析し、個別最適化された備え方針を提示します。',
+    '災害が起きる前に動く事前防災ツール。自治体が既に公開している地域防災計画から想定災害を解析し、あなたの建物・世帯にあわせた備え方針を提示します。',
   applicationName: 'Sonae',
 };
 
