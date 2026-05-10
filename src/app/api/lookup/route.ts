@@ -1,141 +1,51 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { findByCode, findByName, findNearestByCoords } from '@/lib/sonae';
-import { parentCityCodeOfWard } from '@/lib/sonae/seirei';
-import { forwardGeocode, heartRailsReverse, reverseGeocode } from '@/lib/geocode';
+import { resolveMunicipality, type ResolveInput } from '@/lib/sonae';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const Coords = z.object({ lat: z.number(), lng: z.number() });
+
 const RequestSchema = z.discriminatedUnion('mode', [
-  z.object({ mode: z.literal('gps'), value: z.object({ lat: z.number(), lng: z.number() }) }),
-  z.object({ mode: z.literal('address'), value: z.string().min(1) }),
-  z.object({ mode: z.literal('click'), value: z.object({ lat: z.number(), lng: z.number() }) }),
+  z.object({ mode: z.literal('gps'), value: Coords }),
+  z.object({ mode: z.literal('click'), value: Coords }),
+  z.object({
+    mode: z.literal('address'),
+    value: z.string().min(1),
+    hint: Coords.optional(),
+  }),
 ]);
+
+function toResolveInput(parsed: z.infer<typeof RequestSchema>): ResolveInput {
+  if (parsed.mode === 'address') {
+    return { query: parsed.value, coords: parsed.hint };
+  }
+  return { coords: parsed.value };
+}
 
 export async function POST(req: Request) {
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
+    return NextResponse.json({ error: '不正な JSON です' }, { status: 400 });
   }
+
   const parsed = RequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'invalid body', issues: parsed.error.issues },
+      { error: 'リクエスト内容が不正です', issues: parsed.error.issues },
       { status: 400 },
     );
   }
-  const input = parsed.data;
 
-  // 1. 座標 → 解決順序:
-  //    (a) GSI reverse → muniCd を curated registry に照合
-  //    (b) HeartRails reverse → city/prefecture を直接取得 (全国対応)
-  //    (c) どちらも空なら 404
-  if (input.mode === 'gps' || input.mode === 'click') {
-    const { lat, lng } = input.value;
-    let address = '';
-    let muniCd = '';
-    try {
-      const rev = await reverseGeocode(lat, lng);
-      if (rev) {
-        address = rev.address;
-        muniCd = rev.city_code;
-      }
-    } catch {
-      /* ignore */
-    }
-
-    // (a) curated registry hit (alias / disaster_plan_url pin がある場合)
-    let muni = muniCd ? findByCode(muniCd) : null;
-    // 政令指定都市の区コード (例: 熊本市南区 43104) を data/seirei_wards.json で
-    // 親市コード (43100) に正規化する。地域防災計画は政令市単位で発行され、
-    // 区単位は東京 23 区のみが該当するため、東京以外の区は親市にフォールバックする。
-    // (旧実装は muniCd の "00" 終端だけで判定していたため、八代市 43202 のような
-    // 独立市まで誤って熊本市にフォールバックしていた)
-    if (!muni && muniCd) {
-      const parentCode = parentCityCodeOfWard(muniCd);
-      if (parentCode) muni = findByCode(parentCode);
-    }
-    if (!muni && address) muni = findByName(address);
-    if (muni) {
-      return NextResponse.json({
-        municipality_code: muni.code,
-        name: muni.name,
-        prefecture: muni.prefecture,
-        source: 'registry',
-        resolved: { lat, lng, address: address || `${muni.prefecture}${muni.name}` },
-      });
-    }
-
-    // (b) HeartRails で直接 city / prefecture を取得 → 全国対応
-    try {
-      const hr = await heartRailsReverse(lat, lng);
-      if (hr) {
-        return NextResponse.json({
-          municipality_code: muniCd || `hr_${hr.prefecture}_${hr.city}`,
-          name: hr.city,
-          prefecture: hr.prefecture,
-          source: 'heartrails',
-          resolved: {
-            lat,
-            lng,
-            address: address || `${hr.prefecture}${hr.city}${hr.town}`,
-          },
-        });
-      }
-    } catch {
-      /* ignore */
-    }
-
-    // (c) いずれも解決できず
+  const result = await resolveMunicipality(toResolveInput(parsed.data));
+  if (!result) {
     return NextResponse.json(
-      {
-        error: '場所を特定できませんでした',
-        resolved: { lat, lng, address },
-      },
+      { error: '住所/座標から自治体を特定できませんでした。地図クリックで指定してみてください。' },
       { status: 404 },
     );
   }
-
-  // 2. address → forward geocode → 自治体名で registry 検索
-  if (input.mode === 'address') {
-    const query = input.value;
-    let resolvedLat = 0;
-    let resolvedLng = 0;
-    let resolvedAddress = query;
-    let muni = findByName(query);
-    if (!muni) {
-      try {
-        const hits = await forwardGeocode(query);
-        if (hits.length) {
-          const top = hits[0];
-          resolvedLat = top.lat;
-          resolvedLng = top.lng;
-          resolvedAddress = top.address;
-          muni = findByName(top.address);
-          if (!muni) muni = findNearestByCoords(top.lat, top.lng);
-        }
-      } catch {
-        // ignore
-      }
-    }
-    if (!muni) {
-      return NextResponse.json({ error: 'no municipality match', query }, { status: 404 });
-    }
-    return NextResponse.json({
-      municipality_code: muni.code,
-      name: muni.name,
-      prefecture: muni.prefecture,
-      source: 'registry',
-      resolved: {
-        lat: resolvedLat || muni.lat || 0,
-        lng: resolvedLng || muni.lng || 0,
-        address: resolvedAddress,
-      },
-    });
-  }
-
-  return NextResponse.json({ error: 'unknown mode' }, { status: 400 });
+  return NextResponse.json(result);
 }

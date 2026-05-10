@@ -4,10 +4,11 @@ import { useLocationStore } from '@/stores/useLocationStore';
 import { CurrentLocationButton } from './CurrentLocationButton';
 import { GeocodeInput } from './GeocodeInput';
 
-async function lookup(payload: {
-  mode: 'gps' | 'address' | 'click';
-  value: string | { lat: number; lng: number };
-}) {
+type LookupPayload =
+  | { mode: 'gps' | 'click'; value: { lat: number; lng: number } }
+  | { mode: 'address'; value: string; hint?: { lat: number; lng: number } };
+
+async function lookup(payload: LookupPayload) {
   const r = await fetch('/api/lookup', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -47,7 +48,7 @@ export function LocationInputBar() {
       setMunicipality({ code: res.municipality_code, name: res.name, prefecture: res.prefecture });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setError(`現在地から自治体を特定できません: ${msg}`);
+      setError(msg);
     } finally {
       setLooking(false);
     }
@@ -56,12 +57,21 @@ export function LocationInputBar() {
   const onAddress = async (s: { address: string; lat: number; lng: number }) => {
     setLooking(true);
     try {
-      const res = await lookup({ mode: 'address', value: s.address });
-      setPicked({ lat: s.lat, lng: s.lng, address: res.resolved.address, source: 'address' });
+      const res = await lookup({
+        mode: 'address',
+        value: s.address,
+        hint: { lat: s.lat, lng: s.lng },
+      });
+      setPicked({
+        lat: res.resolved.lat || s.lat,
+        lng: res.resolved.lng || s.lng,
+        address: res.resolved.address,
+        source: 'address',
+      });
       setMunicipality({ code: res.municipality_code, name: res.name, prefecture: res.prefecture });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setError(`住所から自治体を特定できません: ${msg}`);
+      setError(msg);
     } finally {
       setLooking(false);
     }

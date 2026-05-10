@@ -16,6 +16,12 @@ export {
 
 export { findByCode, findByName, findNearestByCoords, listRegistry } from './municipality';
 
+export {
+  resolveMunicipality,
+  type ResolveInput,
+  type ResolveResult,
+} from './resolveMunicipality';
+
 export type {
   DisasterAssessment,
   DisasterTypeJp,

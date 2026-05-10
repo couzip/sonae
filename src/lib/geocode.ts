@@ -8,11 +8,11 @@ export interface GeocodeResult {
 
 // 住所→座標 (forward geocode)
 // https://msearch.gsi.go.jp/address-search/AddressSearch?q=...
-export async function forwardGeocode(query: string): Promise<GeocodeResult[]> {
+async function gsiForward(query: string): Promise<GeocodeResult[]> {
   const url = `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(query)}`;
   const r = await fetch(url, {
     headers: { 'User-Agent': 'Sonae/0.1 (https://github.com/couzip/bousai-copilot)' },
-    signal: AbortSignal.timeout(3000),
+    signal: AbortSignal.timeout(10000),
   });
   if (!r.ok) throw new Error(`GSI forward HTTP ${r.status}`);
   const arr = (await r.json()) as Array<{
@@ -24,6 +24,20 @@ export async function forwardGeocode(query: string): Promise<GeocodeResult[]> {
     lng: it.geometry.coordinates[0],
     lat: it.geometry.coordinates[1],
   }));
+}
+
+export async function forwardGeocode(query: string): Promise<GeocodeResult[]> {
+  try {
+    const hits = await gsiForward(query);
+    if (hits.length > 0) return hits;
+  } catch {
+    /* fall through to Nominatim */
+  }
+  try {
+    return await nominatimForward(query);
+  } catch {
+    return [];
+  }
 }
 
 // 座標→住所 (reverse geocode)
@@ -71,6 +85,21 @@ export interface HeartRailsLocation {
   lng: number;
 }
 
+export async function nominatimForward(query: string): Promise<GeocodeResult[]> {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&countrycodes=jp&limit=5&accept-language=ja`;
+  const r = await fetch(url, {
+    headers: { 'User-Agent': 'Sonae/0.1 (https://github.com/couzip/sonae)' },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!r.ok) throw new Error(`Nominatim HTTP ${r.status}`);
+  const arr = (await r.json()) as Array<{ lat: string; lon: string; display_name: string }>;
+  return arr.map((it) => ({
+    address: it.display_name,
+    lat: Number(it.lat),
+    lng: Number(it.lon),
+  }));
+}
+
 export async function heartRailsReverse(
   lat: number,
   lng: number,
@@ -78,7 +107,7 @@ export async function heartRailsReverse(
   const url = `https://geoapi.heartrails.com/api/json?method=searchByGeoLocation&x=${lng}&y=${lat}`;
   const r = await fetch(url, {
     headers: { 'User-Agent': 'Sonae/0.1 (https://github.com/couzip/bousai-copilot)' },
-    signal: AbortSignal.timeout(3000),
+    signal: AbortSignal.timeout(10000),
   });
   if (!r.ok) return null;
   const body = (await r.json()) as {
