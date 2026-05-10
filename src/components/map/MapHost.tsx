@@ -55,7 +55,7 @@ export function MapHost() {
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') return;
       const msg = e instanceof Error ? e.message : String(e);
-      setError(`場所の解決に失敗しました: ${msg}`);
+      setError(`場所の読み込みに失敗しました: ${msg}`);
     } finally {
       if (lookupAbortRef.current === ctl) {
         setLooking(false);
