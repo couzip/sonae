@@ -61,7 +61,7 @@ export function GeocodeInput({
         const msg = e instanceof Error ? e.message : String(e);
         onError?.(`住所検索エラー: ${msg}`);
       }
-    }, 250);
+    }, 500);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };

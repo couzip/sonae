@@ -12,6 +12,7 @@ export async function forwardGeocode(query: string): Promise<GeocodeResult[]> {
   const url = `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(query)}`;
   const r = await fetch(url, {
     headers: { 'User-Agent': 'Sonae/0.1 (https://github.com/couzip/bousai-copilot)' },
+    signal: AbortSignal.timeout(3000),
   });
   if (!r.ok) throw new Error(`GSI forward HTTP ${r.status}`);
   const arr = (await r.json()) as Array<{
@@ -39,6 +40,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseR
   const url = `https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=${lat}&lon=${lng}`;
   const r = await fetch(url, {
     headers: { 'User-Agent': 'Sonae/0.1 (https://github.com/couzip/bousai-copilot)' },
+    signal: AbortSignal.timeout(3000),
   });
   if (!r.ok) return null;
   const body = (await r.json()) as {
@@ -76,6 +78,7 @@ export async function heartRailsReverse(
   const url = `https://geoapi.heartrails.com/api/json?method=searchByGeoLocation&x=${lng}&y=${lat}`;
   const r = await fetch(url, {
     headers: { 'User-Agent': 'Sonae/0.1 (https://github.com/couzip/bousai-copilot)' },
+    signal: AbortSignal.timeout(3000),
   });
   if (!r.ok) return null;
   const body = (await r.json()) as {

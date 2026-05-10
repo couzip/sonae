@@ -124,7 +124,7 @@ export function LocationPicker({ initialLat, initialLng, onPick }: Props) {
   const onMapClick = (lng: number, lat: number) => {
     setPinned({ lat, lng });
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => reverse(lat, lng), 250);
+    debounceRef.current = setTimeout(() => reverse(lat, lng), 500);
   };
 
   const onCenterChange = (lng: number, lat: number) => {
