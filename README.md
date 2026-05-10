@@ -153,9 +153,14 @@ satisfy together:
 
 When a PDF has no text layer, the parser renders each page to PNG, sends
 it to a vision model, and uses the returned markdown as the document body.
-The reference deployment uses a dedicated OCR model, but Gemma 4's
-multimodal capability lets a single model family cover this step in
-deployments that prefer that.
+
+The reference deployment uses **`dots.mocr`** — a Japanese-tuned document
+OCR model that returns layout-preserving markdown directly, which is what
+made the 48 / 49 OCR-only PDFs in the [Validation](#validation) section
+tractable. Operators can also swap to **Gemma 4's own multimodal capability**
+by pointing `OCR_MODEL` at a Gemma 4 vision endpoint, allowing a single
+Gemma 4 model family to cover the whole pipeline in deployments that
+prefer that.
 
 ### 2. Structured output (Zod schemas)
 
@@ -206,7 +211,7 @@ etc.).
 | LLM | Gemma 4 4B for most calls; Gemma 4 26B-A4B for precision roles. Any OpenAI-compatible endpoint (LM Studio, Ollama, vLLM, OpenRouter, LiteLLM proxy, …) |
 | LLM client | Vercel AI SDK (`@ai-sdk/openai-compatible` + `generateObject` / `generateText` / `streamText`) |
 | Chat / tools | Vercel AI SDK `tool()` + `useChat` + `DefaultChatTransport` |
-| Vision OCR | OpenAI-compatible vision endpoint (model in `.env.example`) |
+| Vision OCR | `dots.mocr` (Japanese-tuned, layout-preserving markdown) by default; or any OpenAI-compatible vision endpoint, including Gemma 4 vision |
 | Frontend | Next.js 15 (App Router), TypeScript, Tailwind, Zustand |
 | Mapping | MapLibre GL JS, GSI (Geospatial Information Authority of Japan) tiles |
 | Pipeline | Discoverer / Retriever / Parser / Extractor with cache layers |

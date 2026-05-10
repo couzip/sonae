@@ -71,7 +71,7 @@ endpoint reachable from the Sonae container.
 |---|---|
 | LM Studio | Default. Local-first, OpenAI-compatible REST. |
 | Ollama | Set `LLM_BASE_URL=http://ollama:11434/v1`, model name accordingly. |
-| OpenAI | Use real models (e.g. `gpt-4o-mini`) and a real `LLM_API_KEY`. Note: OCR via OpenAI Vision is not pin-compatible with the `enginil/dots.mocr` output format that the parser expects — verify on a sample PDF before swapping. |
+| OpenAI | Point `LLM_BASE_URL` / `LLM_MODEL` at a current OpenAI text model with a real `LLM_API_KEY`. Note: OCR via OpenAI Vision is not pin-compatible with the `dots.mocr` output format that the parser expects — verify on a sample PDF before swapping. |
 | vLLM / TGI | Any OpenAI-compatible endpoint works. |
 
 ## Reverse proxy
