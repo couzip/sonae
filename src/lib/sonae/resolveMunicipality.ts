@@ -110,16 +110,19 @@ export async function resolveMunicipality(
   try {
     const hr = await heartRailsReverse(lat, lng);
     if (hr) {
+      const fromHr =
+        findByName(hr.city) ??
+        findByName(`${hr.prefecture}${hr.city}`);
+      const fallbackAddress = address || `${hr.prefecture}${hr.city}${hr.town}`;
+      if (fromHr) {
+        return ok(fromHr, lat, lng, fallbackAddress);
+      }
       return {
         municipality_code: `hr_${hr.prefecture}_${hr.city}`,
         name: hr.city,
         prefecture: hr.prefecture,
         source: 'heartrails',
-        resolved: {
-          lat,
-          lng,
-          address: address || `${hr.prefecture}${hr.city}${hr.town}`,
-        },
+        resolved: { lat, lng, address: fallbackAddress },
       };
     }
   } catch {
