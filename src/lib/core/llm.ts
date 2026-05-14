@@ -18,6 +18,8 @@ export interface ChatJsonOptions<T> {
   schemaName?: string;
   maxTokens?: number;
   temperature?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
   signal?: AbortSignal;
   reasoningEffort?: ReasoningEffort;
 }
@@ -68,6 +70,8 @@ export function createLlmClient(config: LlmClientConfig): LlmClient {
         prompt: opts.prompt,
         temperature: opts.temperature ?? 0,
         ...(opts.maxTokens != null ? { maxOutputTokens: opts.maxTokens } : {}),
+        ...(opts.frequencyPenalty != null ? { frequencyPenalty: opts.frequencyPenalty } : {}),
+        ...(opts.presencePenalty != null ? { presencePenalty: opts.presencePenalty } : {}),
         abortSignal: timeoutSignal(opts.signal),
         providerOptions: reasoningOptions(opts.reasoningEffort ?? 'off'),
       });

@@ -87,6 +87,9 @@ ${md}`;
       prompt: stepAPrompt,
       schema: StepATypesSchema,
       schemaName: 'DisasterTypes',
+      temperature: 0.2,
+      frequencyPenalty: 0.5,
+      presencePenalty: 0.3,
       reasoningEffort: stepAEffort,
     });
     const allowedTypes = new Set<string>(DISASTER_TYPE_ENUM);
@@ -152,6 +155,9 @@ ${md}
           prompt: stepBPrompt,
           schema: StepBScenariosSchema,
           schemaName: 'TypeScenarios',
+          temperature: 0.2,
+          frequencyPenalty: 0.5,
+          presencePenalty: 0.3,
           reasoningEffort: stepBEffort,
         });
         const dt = ((Date.now() - t0) / 1000).toFixed(1);
