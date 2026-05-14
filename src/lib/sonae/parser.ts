@@ -91,8 +91,9 @@ export function coreTitle(title: string): string {
 
 /** Convert chandra-style HTML+bbox output to clean markdown. */
 function chandraHtmlToMarkdown(s: string): string {
-  if (!s || !/<\/?(div|h[1-6]|p|br)\b/i.test(s)) return s;
-  return s
+  const stripped = s ? s.replace(/<\|[^>]*?\|>/g, '') : s;
+  if (!stripped || !/<\/?(div|h[1-6]|p|br)\b/i.test(stripped)) return stripped;
+  return stripped
     .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n# $1\n')
     .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n## $1\n')
     .replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '\n### $1\n')

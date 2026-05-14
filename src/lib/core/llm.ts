@@ -38,7 +38,7 @@ export interface LlmClient {
   chatVision(opts: ChatVisionOptions): Promise<string>;
 }
 
-const DEFAULT_TIMEOUT_MS = 600_000;
+const DEFAULT_TIMEOUT_MS = 1_200_000;
 const PROVIDER_NAME = 'sonae';
 
 function reasoningOptions(effort: ReasoningEffort): ProviderOptions | undefined {

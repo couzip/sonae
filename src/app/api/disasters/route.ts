@@ -33,6 +33,14 @@ export async function GET(req: Request) {
         }
       };
 
+      const keepAlive = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(':\n\n'));
+        } catch {
+          /* controller closed */
+        }
+      }, 30_000);
+
       try {
         await runSonaePipeline(code, {
           emit,
@@ -46,6 +54,7 @@ export async function GET(req: Request) {
         const msg = err instanceof Error ? err.message : String(err);
         emit({ type: 'error', message: `エラー: ${msg}` });
       } finally {
+        clearInterval(keepAlive);
         try {
           controller.close();
         } catch {
