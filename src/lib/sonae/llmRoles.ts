@@ -66,7 +66,7 @@ const ROLES: Record<LlmRole, RoleConfig> = {
     keyEnv: 'OCR_API_KEY',
     modelEnv: 'OCR_MODEL',
     fallbackToMain: false,
-    defaultModel: 'enginil/dots.mocr',
+    defaultModel: 'mineru2.5-pro-2604-1.2b',
   },
 };
 

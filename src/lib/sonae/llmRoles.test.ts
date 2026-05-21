@@ -97,6 +97,6 @@ describe('getLlm role-based config', () => {
     const { getLlm } = await import('./llmRoles');
     const c = getLlm('ocr');
     expect(c.config.baseURL).toBe('http://localhost:1234/v1'); // ocr 専用デフォルト
-    expect(c.config.model).toBe('enginil/dots.mocr'); // ocr 専用デフォルト
+    expect(c.config.model).toBe('mineru2.5-pro-2604-1.2b'); // ocr 専用デフォルト
   });
 });

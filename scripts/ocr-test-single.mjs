@@ -3,11 +3,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 const LMS = 'C:\\Users\\Hayshida\\.lmstudio\\bin\\lms.exe';
 const LM_STUDIO_URL = 'http://localhost:1234';
-const TEST_IMAGE = 'cache/work/22220_c0132ab7c973_1778129643476/target_pages/page_0016.png';
-
 const model = process.argv[2];
+const TEST_IMAGE = process.argv[3] || 'cache/work/22220_c0132ab7c973_1778129643476/target_pages/page_0016.png';
 if (!model) {
-  console.error('usage: node ocr-test-single.mjs <model>');
+  console.error('usage: node ocr-test-single.mjs <model> [image-path]');
   process.exit(1);
 }
 
@@ -33,7 +32,7 @@ async function main() {
 
   console.log(`loading ${model}...`);
   const loadStart = Date.now();
-  const loadOut = lms('load', model);
+  const loadOut = lms('load', model, '-y');
   const loadMs = Date.now() - loadStart;
   console.log(`load done in ${loadMs}ms`);
   console.log(`waiting 5s for warmup...`);

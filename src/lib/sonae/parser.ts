@@ -91,8 +91,13 @@ export function coreTitle(title: string): string {
 
 /** Convert chandra-style HTML+bbox output to clean markdown. */
 function chandraHtmlToMarkdown(s: string): string {
-  const stripped = s ? s.replace(/<\|[^>]*?\|>/g, '') : s;
-  if (!stripped || !/<\/?(div|h[1-6]|p|br)\b/i.test(stripped)) return stripped;
+  if (!s) return s;
+  const stripped = s
+    .replace(/<\|[^>]*?\|>/g, '')
+    .replace(/<lcel>/g, '')
+    .replace(/<fcel>/g, '| ')
+    .replace(/<nl>/g, ' |\n');
+  if (!/<\/?(div|h[1-6]|p|br)\b/i.test(stripped)) return stripped;
   return stripped
     .replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '\n# $1\n')
     .replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '\n## $1\n')
@@ -257,7 +262,17 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
         break;
       }
     }
-    if (startPage === null) throw new Error('heading 不検出');
+    if (startPage === null) {
+      const fallback = candImgs[0]?.pageNum ?? candidates[0];
+      if (fallback == null) throw new Error('heading 不検出 (候補ページなし)');
+      startPage = fallback;
+      startHeading = '(heading 未検出、TOC 候補先頭ページを採用)';
+      ctx.emit({
+        type: 'log',
+        phase: 'ocr_section',
+        message: `[警告] heading 不検出、TOC 候補先頭 page ${startPage} を本文として採用`,
+      });
+    }
     ctx.emit({
       type: 'log',
       phase: 'ocr_section',
@@ -411,7 +426,15 @@ export class SonaeTocOcrParser implements Parser<SonaeBlob, SonaeParsed, SonaeQu
         break;
       }
     }
-    if (startPage === null) throw new Error('heading 不検出 (full OCR 経由)');
+    if (startPage === null) {
+      startPage = candidates[0];
+      startHeading = '(heading 未検出、TOC 候補先頭ページを採用)';
+      ctx.emit({
+        type: 'log',
+        phase: 'ocr_section',
+        message: `[警告] heading 不検出 (full OCR 経由)、TOC 候補先頭 page ${startPage} を本文として採用`,
+      });
+    }
     ctx.emit({
       type: 'log',
       phase: 'ocr_section',
