@@ -22,7 +22,7 @@
     "@ai-sdk/openai-compatible": "^2.0.46",
     "@ai-sdk/react": "^3.0.177",
     "@hookform/resolvers": "^3.9.0",
-    "@napi-rs/canvas": "^0.1.96",
+    "@napi-rs/canvas": "^1.0.0",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-popover": "^1.1.2",
